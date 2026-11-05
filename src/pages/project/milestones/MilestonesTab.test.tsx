@@ -6,9 +6,11 @@ import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from '../../../auth/AuthProvider'
 import { ToastProvider } from '../../../ui/Toast'
 import { addMilestone, deleteMilestone, listMilestones, mergeMilestones, updateMilestone, type Milestone } from '../../../api/milestones'
+import { listReviews, type Review } from '../../../api/reviews'
 import type { ProjectSummary } from '../../../api/projects'
 import MilestonesTab from './MilestonesTab'
 
+vi.mock('../../../api/reviews', async (orig) => ({ ...(await orig<typeof import('../../../api/reviews')>()), listReviews: vi.fn(), submitReview: vi.fn() }))
 vi.mock('../../../api/milestones', async (orig) => ({
   ...(await orig<typeof import('../../../api/milestones')>()),
   listMilestones: vi.fn(),
@@ -78,6 +80,7 @@ function renderTab(status: ProjectSummary['status'] = 'active', role: 'admin' | 
 }
 
 beforeEach(() => {
+  vi.mocked(listReviews).mockResolvedValue([])
   vi.mocked(listMilestones).mockResolvedValue([m1])
   vi.mocked(updateMilestone).mockResolvedValue()
   vi.mocked(deleteMilestone).mockResolvedValue()
@@ -210,5 +213,15 @@ describe('MilestonesTab (client)', () => {
     expect(screen.getByText('Wireframes approved')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Save changes|Delete milestone|Add milestone/ })).not.toBeInTheDocument()
+  })
+
+  it('lets a client review a milestone that is in review, and shows the latest review', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([{ ...m1, status: 'in_review' }])
+    const review: Review = { id: 'r0', milestone_id: 'm1', user_id: 'c1', decision: 'changes_requested', comment: 'Earlier note', created_at: '2026-11-01T00:00:00Z', reviewer_name: 'Dee' }
+    vi.mocked(listReviews).mockResolvedValue([review])
+    renderTab('active', 'client')
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Request changes' })).toBeInTheDocument()
+    expect(await screen.findByText('Changes requested by Dee: “Earlier note”')).toBeInTheDocument()
   })
 })

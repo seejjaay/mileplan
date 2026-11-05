@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteMilestone, mergeMilestones, updateMilestone, type Milestone, type MilestonePatch, type MilestoneStatus } from '../../../api/milestones'
 import { invalidateProject } from '../../../api/invalidate'
 import type { ProjectStatus } from '../../../api/projects'
+import { describeReview, type Review } from '../../../api/reviews'
 import { toUserMessage } from '../../../lib/errors'
 import { Button } from '../../../ui/Button'
 import { Dialog } from '../../../ui/Dialog'
@@ -17,10 +18,10 @@ import { TaskList } from './TaskList'
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
 const STATUSES = Object.keys(milestoneChip) as MilestoneStatus[]
 
-type Props = { milestone: Milestone; next?: Milestone; projectStatus: ProjectStatus; currency: string }
+type Props = { milestone: Milestone; next?: Milestone; review?: Review; projectStatus: ProjectStatus; currency: string }
 
 /** One editable milestone. Remount (via key) when the saved data changes so the draft resets. */
-export function MilestoneRow({ milestone, next, projectStatus, currency }: Props) {
+export function MilestoneRow({ milestone, next, review, projectStatus, currency }: Props) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const saved = toDraft(milestone)
@@ -95,6 +96,8 @@ export function MilestoneRow({ milestone, next, projectStatus, currency }: Props
   return (
     <fieldset className="flex flex-col gap-4 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
       <legend className="px-1 font-medium">{milestone.title}</legend>
+
+      {review && <p className="text-sm text-[var(--muted)]">{describeReview(review)}</p>}
 
       {stale && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--warn)] p-3 text-sm">

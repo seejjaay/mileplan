@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ToastProvider } from '../../../ui/Toast'
 import { updateMilestone, type Milestone } from '../../../api/milestones'
+import type { Review } from '../../../api/reviews'
 import { MilestoneRow } from './MilestoneRow'
 
 vi.mock('../../../api/milestones', async (orig) => ({
@@ -34,12 +35,12 @@ const base: Milestone = {
   tasks: [],
 }
 
-function mount(milestone: Milestone) {
+function mount(milestone: Milestone, review?: Review) {
   const client = new QueryClient() // one client for the whole test, like the real app
   const ui = (m: Milestone) => (
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <MilestoneRow milestone={m} projectStatus="setup" currency="PHP" />
+        <MilestoneRow milestone={m} review={review} projectStatus="setup" currency="PHP" />
       </ToastProvider>
     </QueryClientProvider>
   )
@@ -118,5 +119,20 @@ describe('MilestoneRow while the data changes underneath it', () => {
     expect(screen.getByLabelText('Amount')).toHaveValue(2000)
     console.log('C')
     expect(screen.getByText(/Changed elsewhere/)).toBeInTheDocument()
+  })
+
+  it('shows the admin the latest client review, with the comment', () => {
+    mount(base, { id: 'r1', milestone_id: 'm1', user_id: 'c1', decision: 'changes_requested', comment: 'Logo too small', created_at: '2026-11-05T08:00:00Z', reviewer_name: 'Dee' })
+    expect(screen.getByText('Changes requested by Dee: “Logo too small”')).toBeInTheDocument()
+  })
+
+  it('shows an approval without a comment', () => {
+    mount(base, { id: 'r1', milestone_id: 'm1', user_id: 'c1', decision: 'approved', comment: null, created_at: '2026-11-05T08:00:00Z', reviewer_name: 'Dee' })
+    expect(screen.getByText('Approved by Dee')).toBeInTheDocument()
+  })
+
+  it('shows nothing when there is no review', () => {
+    mount(base)
+    expect(screen.queryByText(/Approved by|Changes requested by/)).not.toBeInTheDocument()
   })
 })
