@@ -7,6 +7,7 @@ import { ToastProvider } from '../../ui/Toast'
 import { getProject, type ProjectSummary } from '../../api/projects'
 import ProjectPage from './ProjectPage'
 
+vi.mock('../../realtime/useProjectRealtime', () => ({ useProjectRealtime: () => ({ connected: true, reconnecting: false, lastChange: null }) }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), getProject: vi.fn() }))
 
 const project: ProjectSummary = {

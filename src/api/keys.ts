@@ -6,4 +6,7 @@ export const qk = {
   updates: (projectId: string) => ['updates', projectId] as const,
   documents: (projectId: string) => ['documents', projectId] as const,
   activity: (projectId: string) => ['activity', projectId] as const,
+  planChanges: (projectId: string) => ['planChanges', projectId] as const,
+  reviews: (projectId: string) => ['reviews', projectId] as const,
+  lastVisit: (projectId: string) => ['lastVisit', projectId] as const,
 }

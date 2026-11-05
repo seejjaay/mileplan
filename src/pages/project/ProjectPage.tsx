@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getProject, type ProjectSummary } from '../../api/projects'
 import { qk } from '../../api/keys'
+import { ReconnectingPill } from '../../realtime/ReconnectingPill'
+import { useProjectRealtime } from '../../realtime/useProjectRealtime'
 import { toUserMessage } from '../../lib/errors'
 import { useTitle } from '../../lib/useTitle'
 import { Button } from '../../ui/Button'
@@ -28,6 +30,7 @@ export default function ProjectPage() {
   const tab = resolveTab(rawTab)
   const query = useQuery({ queryKey: qk.project(id), queryFn: () => getProject(id), enabled: !!id })
   const project = query.data
+  const { reconnecting } = useProjectRealtime(id)
   useTitle(project ? project.title : 'Project')
 
   if (query.isPending) return <Skeleton />
@@ -48,6 +51,7 @@ export default function ProjectPage() {
   const Panel = PANELS[tab]
   return (
     <div className="flex flex-col gap-4">
+      <ReconnectingPill visible={reconnecting} />
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold">{project.title}</h1>
