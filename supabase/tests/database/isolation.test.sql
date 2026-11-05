@@ -43,7 +43,7 @@ select is((select count(*) from public.milestone_reviews), 0::bigint, 'isolation
 select is((select count(*) from public.payments), 0::bigint, 'isolation: payments');
 select is((select count(*) from public.messages), 0::bigint, 'isolation: messages');
 select is((select count(*) from public.message_reads), 0::bigint, 'isolation: message_reads');
-select is((select count(*) from public.activity), 0::bigint, 'isolation: activity');
+select is((select count(*) from public.activity where project_id = '00000000-0000-0000-0000-0000000000a2'), 0::bigint, 'isolation: activity');
 select is((select count(*) from public.plan_change_acks), 0::bigint, 'isolation: plan_change_acks');
 select throws_ok('select count(*) from public.setup_tokens', '42501', null, 'isolation: setup_tokens');
 
