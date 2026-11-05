@@ -10,9 +10,11 @@ import { useTitle } from '../../lib/useTitle'
 import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
+import { ChangeMarkersContext } from './changeMarkers'
 import { PlanChangeBanner } from './PlanChangeBanner'
 import { projectChip } from './projectStatus'
 import { resolveTab, TABS, type TabKey } from './tabs'
+import { useProjectMarkers } from './useProjectMarkers'
 
 const PANELS: Record<TabKey, React.LazyExoticComponent<ComponentType<{ project: ProjectSummary }>>> = {
   overview: lazy(() => import('./OverviewTab')),
@@ -32,6 +34,7 @@ export default function ProjectPage() {
   const query = useQuery({ queryKey: qk.project(id), queryFn: () => getProject(id), enabled: !!id })
   const project = query.data
   const { reconnecting } = useProjectRealtime(id)
+  const markers = useProjectMarkers(id)
   useTitle(project ? project.title : 'Project')
 
   if (query.isPending) return <Skeleton />
@@ -51,6 +54,7 @@ export default function ProjectPage() {
 
   const Panel = PANELS[tab]
   return (
+    <ChangeMarkersContext.Provider value={markers}>
     <div className="flex flex-col gap-4">
       <ReconnectingPill visible={reconnecting} />
       <header className="flex flex-col gap-2">
@@ -68,19 +72,28 @@ export default function ProjectPage() {
 
       <nav aria-label="Project sections" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex min-w-max gap-1 border-b border-[var(--border)]">
-          {TABS.map((t) => (
+          {TABS.map((t) => {
+            const updated = markers.tabs.has(t.key) && t.key !== tab // no dot on the tab you are already reading
+            return (
             <li key={t.key}>
               <Link
                 to={`/projects/${id}/${t.key}`}
                 aria-current={t.key === tab ? 'page' : undefined}
+                aria-label={updated ? `${t.label} (updated)` : undefined}
                 className={`block whitespace-nowrap px-3 py-2 text-sm font-medium ${
                   t.key === tab ? 'border-b-2 border-[var(--accent)] text-[var(--text)]' : 'text-[var(--muted)]'
                 }`}
               >
                 {t.label}
+                {updated && (
+                  <span aria-hidden="true" className="ml-1 text-[var(--accent)]">
+                    •
+                  </span>
+                )}
               </Link>
             </li>
-          ))}
+            )
+          })}
         </ul>
       </nav>
 
@@ -90,5 +103,6 @@ export default function ProjectPage() {
         </Suspense>
       </section>
     </div>
+    </ChangeMarkersContext.Provider>
   )
 }

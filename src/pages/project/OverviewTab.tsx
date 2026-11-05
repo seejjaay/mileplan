@@ -13,6 +13,7 @@ import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
 import { ActivateDialog } from './ActivateDialog'
+import { useChangeMarkers } from './changeMarkers'
 import { holdChip, milestoneChip } from './milestoneStatus'
 import { useEntityNames } from './useEntityNames'
 
@@ -23,6 +24,7 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const planChanges = useQuery({ queryKey: qk.planChanges(project.id), queryFn: () => listPlanChanges(project.id), enabled: isAdmin })
   const names = useEntityNames(project.id)
+  const changed = useChangeMarkers().milestones
   const waiting = (planChanges.data ?? []).filter((c) => c.acks.length === 0)
 
   return (
@@ -84,6 +86,7 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
                   <span className="flex flex-wrap gap-2">
                     <StatusChip {...milestoneChip[m.status]} />
                     {m.on_hold && <StatusChip {...holdChip} />}
+                    {changed.has(m.id) && <StatusChip status="attention" label="Updated" />}
                   </span>
                   {m.due_date && <span className="text-sm text-[var(--muted)]">Due {formatDate(m.due_date)}</span>}
                 </li>

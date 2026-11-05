@@ -11,6 +11,7 @@ import { Button } from '../../../ui/Button'
 import { StatusChip } from '../../../ui/StatusChip'
 import { holdChip, milestoneChip } from '../milestoneStatus'
 import { AddMilestoneDialog } from './AddMilestoneDialog'
+import { useChangeMarkers } from '../changeMarkers'
 import { MilestoneRow } from './MilestoneRow'
 import { ReviewActions } from './ReviewActions'
 import { SortableList } from './SortableList'
@@ -18,6 +19,7 @@ import { TaskList } from './TaskList'
 import { useReorder } from './useReorder'
 
 function ReadOnlyMilestone({ milestone, currency, review }: { milestone: Milestone; currency: string; review?: Review }) {
+  const changed = useChangeMarkers().milestones.has(milestone.id)
   return (
     <li className="flex flex-col gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -25,6 +27,7 @@ function ReadOnlyMilestone({ milestone, currency, review }: { milestone: Milesto
         <span className="flex flex-wrap gap-2">
           <StatusChip {...milestoneChip[milestone.status]} />
           {milestone.on_hold && <StatusChip {...holdChip} />}
+          {changed && <StatusChip status="attention" label="Updated" />}
         </span>
       </div>
       <p className="text-sm text-[var(--muted)]">

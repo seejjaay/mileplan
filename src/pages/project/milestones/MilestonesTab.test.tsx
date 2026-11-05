@@ -8,6 +8,7 @@ import { ToastProvider } from '../../../ui/Toast'
 import { addMilestone, deleteMilestone, listMilestones, mergeMilestones, updateMilestone, type Milestone } from '../../../api/milestones'
 import { listReviews, type Review } from '../../../api/reviews'
 import type { ProjectSummary } from '../../../api/projects'
+import { ChangeMarkersContext } from '../changeMarkers'
 import MilestonesTab from './MilestonesTab'
 
 vi.mock('../../../api/reviews', async (orig) => ({ ...(await orig<typeof import('../../../api/reviews')>()), listReviews: vi.fn(), submitReview: vi.fn() }))
@@ -58,7 +59,7 @@ const m1: Milestone = {
   tasks: [],
 }
 
-function renderTab(status: ProjectSummary['status'] = 'active', role: 'admin' | 'client' = 'admin') {
+function renderTab(status: ProjectSummary['status'] = 'active', role: 'admin' | 'client' = 'admin', marked: string[] = []) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
@@ -70,9 +71,11 @@ function renderTab(status: ProjectSummary['status'] = 'active', role: 'admin' | 
             signOut: async () => {},
           }}
         >
-          <MemoryRouter>
-            <MilestonesTab project={project(status)} />
-          </MemoryRouter>
+          <ChangeMarkersContext.Provider value={{ milestones: new Set(marked), tabs: new Set() }}>
+            <MemoryRouter>
+              <MilestonesTab project={project(status)} />
+            </MemoryRouter>
+          </ChangeMarkersContext.Provider>
         </AuthContext.Provider>
       </ToastProvider>
     </QueryClientProvider>,
@@ -223,5 +226,14 @@ describe('MilestonesTab (client)', () => {
     expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Request changes' })).toBeInTheDocument()
     expect(await screen.findByText('Changes requested by Dee: “Earlier note”')).toBeInTheDocument()
+  })
+
+  it('flags a client milestone that changed since their last visit with an Updated chip', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([m1, { ...m1, id: 'm2', title: 'Build' }])
+    renderTab('active', 'client', ['m2'])
+    await screen.findByText('Build')
+    expect(screen.getAllByText('Updated')).toHaveLength(1)
+    const build = screen.getByText('Build').closest('li')!
+    expect(within(build).getByText('Updated')).toBeInTheDocument()
   })
 })

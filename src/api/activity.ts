@@ -36,3 +36,16 @@ export async function listActivity(projectId: string, { before }: { before?: str
   if (error) throw error
   return data as unknown as ActivityRow[]
 }
+
+/** Everything logged after `since` (capped), newest first. Used for the "updated since your last visit" markers. */
+export async function listActivitySince(projectId: string, since: string): Promise<ActivityRow[]> {
+  const { data, error } = await supabase
+    .from('activity')
+    .select('*, actor_name, acks:plan_change_acks(user_id, acked_at, acker_name)')
+    .eq('project_id', projectId)
+    .gt('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (error) throw error
+  return data as unknown as ActivityRow[]
+}

@@ -8,6 +8,7 @@ import { getProject, type ProjectSummary } from '../../api/projects'
 import ProjectPage from './ProjectPage'
 
 vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn(async () => [{ id: 'a', project_id: 'p1', actor_id: 'x', entity: 'milestone', entity_id: 'm1', action: 'updated', changes: { due_date: ['2026-12-01', '2026-12-15'] }, reason: null, plan_change: true, created_at: '2026-11-05T08:00:00Z', actor_name: null, acks: [] }]), acknowledge: vi.fn() }))
+vi.mock('./useProjectMarkers', () => ({ useProjectMarkers: () => ({ milestones: new Set(['m1']), tabs: new Set(['updates', 'milestones']) }) }))
 vi.mock('../../realtime/useProjectRealtime', () => ({ useProjectRealtime: () => ({ connected: true, reconnecting: false, lastChange: null }) }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), getProject: vi.fn() }))
 
@@ -89,5 +90,13 @@ describe('ProjectPage', () => {
     renderAt('/projects/p1/files', 'admin')
     await screen.findByRole('heading', { name: 'Website rebuild', level: 1 })
     expect(screen.queryByRole('region', { name: 'The plan changed' })).not.toBeInTheDocument()
+  })
+
+  it('flags changed tabs for screen readers, but not the tab you are already on', async () => {
+    vi.mocked(getProject).mockResolvedValue(project)
+    renderAt('/projects/p1/milestones', 'client')
+    expect(await screen.findByRole('link', { name: 'Updates (updated)' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Milestones' })).toHaveAttribute('aria-current', 'page') // no "(updated)" on the current tab
+    expect(screen.getByRole('link', { name: 'Files' })).toBeInTheDocument()
   })
 })

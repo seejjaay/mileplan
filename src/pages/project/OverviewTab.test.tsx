@@ -7,6 +7,7 @@ import { ToastProvider } from '../../ui/Toast'
 import { listMilestones, type Milestone } from '../../api/milestones'
 import { listPlanChanges, type PlanChange } from '../../api/planChanges'
 import type { ProjectSummary } from '../../api/projects'
+import { ChangeMarkersContext } from './changeMarkers'
 import OverviewTab from './OverviewTab'
 
 vi.mock('../../api/milestones', async (orig) => ({ ...(await orig<typeof import('../../api/milestones')>()), listMilestones: vi.fn() }))
@@ -47,7 +48,7 @@ const ms = (over: Partial<Milestone>): Milestone => ({
   ...over,
 })
 
-function renderTab(p: ProjectSummary, role: 'admin' | 'client' = 'admin') {
+function renderTab(p: ProjectSummary, role: 'admin' | 'client' = 'admin', marked: string[] = []) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
@@ -59,9 +60,11 @@ function renderTab(p: ProjectSummary, role: 'admin' | 'client' = 'admin') {
             signOut: async () => {},
           }}
         >
-          <MemoryRouter>
-            <OverviewTab project={p} />
-          </MemoryRouter>
+          <ChangeMarkersContext.Provider value={{ milestones: new Set(marked), tabs: new Set() }}>
+            <MemoryRouter>
+              <OverviewTab project={p} />
+            </MemoryRouter>
+          </ChangeMarkersContext.Provider>
         </AuthContext.Provider>
       </ToastProvider>
     </QueryClientProvider>,
@@ -157,5 +160,12 @@ describe('OverviewTab', () => {
     renderTab({ ...project, status: 'active' }, 'client')
     await screen.findByText('No milestones yet. Add the first one.')
     expect(screen.queryByRole('region', { name: 'Pending acknowledgements' })).not.toBeInTheDocument()
+  })
+
+  it('flags a milestone in the strip that changed since the last visit', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([ms({ id: 'a', title: 'Discovery' }), ms({ id: 'b', position: 2, title: 'Build' })])
+    renderTab({ ...project, status: 'active' }, 'client', ['b'])
+    await screen.findByText('Build')
+    expect(screen.getAllByText('Updated')).toHaveLength(1)
   })
 })
