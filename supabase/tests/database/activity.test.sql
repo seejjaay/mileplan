@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(17);
 
 -- Fixtures (as postgres)
 insert into public.projects (id, title, status) values
@@ -50,6 +50,14 @@ delete from public.milestones where id = '00000000-0000-0000-0000-0000000000b9';
 select is(
   (select plan_change from public.activity where entity_id = '00000000-0000-0000-0000-0000000000b9' and action = 'deleted'),
   true, 'milestone delete is a plan change');
+
+-- 3b. created/deleted rows carry the identifying title so the timeline can name them
+select is(
+  (select changes -> 'title' from public.activity where entity_id = '00000000-0000-0000-0000-0000000000b9' and action = 'created'),
+  '[null, "M9 new"]'::jsonb, 'created milestone logs its title');
+select is(
+  (select changes -> 'title' from public.activity where entity_id = '00000000-0000-0000-0000-0000000000b9' and action = 'deleted'),
+  '["M9 new", null]'::jsonb, 'deleted milestone logs its title');
 
 -- 4. task status change
 update public.tasks set status = 'done' where id = '00000000-0000-0000-0000-0000000000e1';
