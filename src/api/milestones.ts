@@ -38,3 +38,24 @@ export async function listMilestones(projectId: string): Promise<Milestone[]> {
 export function totalAmount(milestones: { amount: number }[]): number {
   return milestones.reduce((cents, m) => cents + Math.round(Number(m.amount) * 100), 0) / 100
 }
+
+export type MilestonePatch = Partial<
+  Pick<Milestone, 'title' | 'description' | 'acceptance_criteria' | 'due_date' | 'amount' | 'on_hold' | 'status'>
+>
+export type NewMilestone = { title: string; description?: string; acceptance_criteria?: string[]; due_date?: string; amount?: number }
+
+export async function addMilestone(projectId: string, fields: NewMilestone, reason?: string): Promise<string> {
+  const { data, error } = await supabase.rpc('add_milestone', { p_project_id: projectId, p_fields: fields, p_reason: reason ?? null })
+  if (error) throw error
+  return data as string
+}
+
+export async function updateMilestone(id: string, patch: MilestonePatch, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('update_milestone', { p_id: id, p_patch: patch, p_reason: reason ?? null })
+  if (error) throw error
+}
+
+export async function deleteMilestone(id: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_milestone', { p_id: id, p_reason: reason ?? null })
+  if (error) throw error
+}
