@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -38,6 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const userId = session?.user.id
+
+  // A session can end without signOut() (expiry, another tab). Drop the previous user's cached data
+  // so the next person on this browser never sees it.
+  const previousUserId = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (previousUserId.current && previousUserId.current !== userId) {
+      queryClient.removeQueries({ predicate: (q) => !(q.queryKey[0] === 'profile' && q.queryKey[1] === userId) })
+    }
+    previousUserId.current = userId
+  }, [userId, queryClient])
+
   const profileQuery = useQuery({
     queryKey: profileKey(userId),
     enabled: !!userId,
