@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: 0.25rem;
+  z-index: 100;
+}
+.skip-link:focus {
+  top: 0.5rem;
+}
