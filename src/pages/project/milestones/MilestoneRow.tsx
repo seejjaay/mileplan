@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteMilestone, updateMilestone, type Milestone, type MilestoneStatus } from '../../../api/milestones'
+import { deleteMilestone, mergeMilestones, updateMilestone, type Milestone, type MilestoneStatus } from '../../../api/milestones'
 import { invalidateProject } from '../../../api/invalidate'
 import type { ProjectStatus } from '../../../api/projects'
 import { toUserMessage } from '../../../lib/errors'
@@ -11,20 +11,25 @@ import { useToast } from '../../../ui/Toast'
 import { milestoneChip } from '../milestoneStatus'
 import { amountValid, diffDraft, toDraft, touchesPlan, type Draft } from './milestoneDraft'
 import { ReasonField } from './ReasonField'
+import { SplitDialog } from './SplitDialog'
+import { TaskList } from './TaskList'
 
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
 const STATUSES = Object.keys(milestoneChip) as MilestoneStatus[]
 
-type Props = { milestone: Milestone; projectStatus: ProjectStatus }
+type Props = { milestone: Milestone; next?: Milestone; projectStatus: ProjectStatus; currency: string }
 
 /** One editable milestone. Remount (via key) when the saved data changes so the draft resets. */
-export function MilestoneRow({ milestone, projectStatus }: Props) {
+export function MilestoneRow({ milestone, next, projectStatus, currency }: Props) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<Draft>(() => toDraft(milestone))
   const [reason, setReason] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleteReason, setDeleteReason] = useState('')
+  const [splitting, setSplitting] = useState(false)
+  const [confirmingMerge, setConfirmingMerge] = useState(false)
+  const [mergeReason, setMergeReason] = useState('')
 
   const patch = diffDraft(milestone, draft)
   const dirty = Object.keys(patch).length > 0
@@ -48,6 +53,16 @@ export function MilestoneRow({ milestone, projectStatus }: Props) {
     onSuccess: () => {
       toast.success('Milestone deleted')
       setConfirmingDelete(false)
+      return invalidateProject(queryClient, milestone.project_id)
+    },
+    onError: (err) => toast.error(toUserMessage(err)),
+  })
+
+  const merge = useMutation({
+    mutationFn: () => mergeMilestones(milestone.id, next!.id, active ? mergeReason.trim() || undefined : undefined),
+    onSuccess: () => {
+      toast.success('Milestones merged')
+      setConfirmingMerge(false)
       return invalidateProject(queryClient, milestone.project_id)
     },
     onError: (err) => toast.error(toUserMessage(err)),
@@ -90,16 +105,50 @@ export function MilestoneRow({ milestone, projectStatus }: Props) {
         On hold
       </label>
 
+      <TaskList milestone={milestone} canEdit />
+
       {showReason && <ReasonField value={reason} onChange={setReason} />}
 
       <div className="flex flex-wrap justify-between gap-2">
-        <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
-          Delete milestone
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+            Delete milestone
+          </Button>
+          <Button variant="secondary" disabled={dirty} title={dirty ? 'Save or undo your edits first' : undefined} onClick={() => setSplitting(true)}>
+            Split milestone
+          </Button>
+          {next && (
+            <Button variant="secondary" disabled={dirty} title={dirty ? 'Save or undo your edits first' : undefined} onClick={() => setConfirmingMerge(true)}>
+              Merge with next
+            </Button>
+          )}
+        </div>
         <Button loading={save.isPending} disabled={!canSave} onClick={() => save.mutate()}>
           Save changes
         </Button>
       </div>
+
+      <SplitDialog milestone={milestone} projectStatus={projectStatus} currency={currency} open={splitting} onClose={() => setSplitting(false)} />
+
+      {next && (
+        <Dialog open={confirmingMerge} onClose={() => setConfirmingMerge(false)} title="Merge milestones?">
+          <div className="flex flex-col gap-4">
+            <p>
+              “{next.title}” will be folded into “{milestone.title}”: amounts are added, tasks are combined and “{next.title}” is removed.
+              {active ? ' The client will see this as a plan change.' : ''}
+            </p>
+            {active && <ReasonField value={mergeReason} onChange={setMergeReason} />}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirmingMerge(false)}>
+                Cancel
+              </Button>
+              <Button loading={merge.isPending} onClick={() => merge.mutate()}>
+                Confirm merge
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
 
       <Dialog open={confirmingDelete} onClose={() => setConfirmingDelete(false)} title="Delete milestone?">
         <div className="flex flex-col gap-4">

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from '../../../auth/AuthProvider'
 import { ToastProvider } from '../../../ui/Toast'
-import { addMilestone, deleteMilestone, listMilestones, updateMilestone, type Milestone } from '../../../api/milestones'
+import { addMilestone, deleteMilestone, listMilestones, mergeMilestones, updateMilestone, type Milestone } from '../../../api/milestones'
 import type { ProjectSummary } from '../../../api/projects'
 import MilestonesTab from './MilestonesTab'
 
@@ -15,6 +15,13 @@ vi.mock('../../../api/milestones', async (orig) => ({
   addMilestone: vi.fn(),
   updateMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
+  reorderMilestones: vi.fn(),
+  reorderTasks: vi.fn(),
+  mergeMilestones: vi.fn(),
+  splitMilestone: vi.fn(),
+  addTask: vi.fn(),
+  updateTask: vi.fn(),
+  deleteTask: vi.fn(),
 }))
 
 const project = (status: ProjectSummary['status']): ProjectSummary => ({
@@ -164,6 +171,34 @@ describe('MilestonesTab (admin)', () => {
     await userEvent.click(add)
     await waitFor(() => expect(addMilestone).toHaveBeenCalledWith('p1', expect.objectContaining({ title: 'Build' }), undefined))
     expect(await screen.findByText('Milestone added')).toBeInTheDocument()
+  })
+})
+
+describe('MilestonesTab split and merge', () => {
+  const m2: Milestone = { ...m1, id: 'm2', position: 2, title: 'Build' }
+
+  it('offers Merge with next on every milestone except the last, behind a confirmation', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([m1, m2])
+    vi.mocked(mergeMilestones).mockResolvedValue()
+    renderTab('active')
+    const first = within(await screen.findByRole('group', { name: 'Discovery' }))
+    const second = within(await screen.findByRole('group', { name: 'Build' }))
+    expect(second.queryByRole('button', { name: 'Merge with next' })).not.toBeInTheDocument()
+    await userEvent.click(first.getByRole('button', { name: 'Merge with next' }))
+    expect(mergeMilestones).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
+    await waitFor(() => expect(mergeMilestones).toHaveBeenCalledWith('m1', 'm2', undefined))
+    expect(await screen.findByText('Milestones merged')).toBeInTheDocument()
+  })
+
+  it('disables Split and Merge while the row has unsaved edits', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([m1, m2])
+    renderTab('setup')
+    const first = within(await screen.findByRole('group', { name: 'Discovery' }))
+    expect(first.getByRole('button', { name: 'Split milestone' })).toBeEnabled()
+    await userEvent.type(first.getByLabelText('Title'), ' v2')
+    expect(first.getByRole('button', { name: 'Split milestone' })).toBeDisabled()
+    expect(first.getByRole('button', { name: 'Merge with next' })).toBeDisabled()
   })
 })
 

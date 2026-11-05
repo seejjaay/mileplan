@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { listMilestones, type Milestone } from '../../../api/milestones'
+import { listMilestones, reorderMilestones, type Milestone } from '../../../api/milestones'
 import { qk } from '../../../api/keys'
 import type { ProjectSummary } from '../../../api/projects'
 import { useAuth } from '../../../auth/AuthProvider'
@@ -12,6 +12,9 @@ import { holdChip, milestoneChip } from '../milestoneStatus'
 import { AddMilestoneDialog } from './AddMilestoneDialog'
 import { toDraft } from './milestoneDraft'
 import { MilestoneRow } from './MilestoneRow'
+import { SortableList } from './SortableList'
+import { TaskList } from './TaskList'
+import { useReorder } from './useReorder'
 
 function ReadOnlyMilestone({ milestone, currency }: { milestone: Milestone; currency: string }) {
   return (
@@ -35,6 +38,7 @@ function ReadOnlyMilestone({ milestone, currency }: { milestone: Milestone; curr
           ))}
         </ul>
       )}
+      <TaskList milestone={milestone} canEdit={false} />
     </li>
   )
 }
@@ -44,6 +48,11 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
   const isAdmin = profile?.role === 'admin'
   const [adding, setAdding] = useState(false)
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
+  const reorder = useReorder<Milestone[]>(
+    qk.milestones(project.id),
+    (ids) => reorderMilestones(project.id, ids),
+    (cache, ids) => ids.map((id) => cache.find((m) => m.id === id)!),
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,11 +68,26 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
       >
         {(milestones) =>
           isAdmin ? (
-            <div className="flex flex-col gap-4">
-              {milestones.map((m) => (
-                <MilestoneRow key={`${m.id}:${JSON.stringify(toDraft(m))}`} milestone={m} projectStatus={project.status} />
-              ))}
-            </div>
+            <SortableList
+              items={milestones}
+              label="Milestones"
+              onReorder={(ids) => reorder.mutate(ids)}
+              handleLabel={(m) => `Reorder ${m.title}`}
+              renderItem={(m, handle) => (
+                <div className="flex items-start gap-2">
+                  {handle}
+                  <div className="min-w-0 flex-1">
+                    <MilestoneRow
+                      key={`${m.id}:${JSON.stringify(toDraft(m))}`}
+                      milestone={m}
+                      next={milestones[milestones.findIndex((x) => x.id === m.id) + 1]}
+                      projectStatus={project.status}
+                      currency={project.currency}
+                    />
+                  </div>
+                </div>
+              )}
+            />
           ) : (
             <ul className="flex flex-col gap-3">
               {milestones.map((m) => (
