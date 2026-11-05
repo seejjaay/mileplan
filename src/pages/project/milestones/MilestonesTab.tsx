@@ -10,7 +10,6 @@ import { Button } from '../../../ui/Button'
 import { StatusChip } from '../../../ui/StatusChip'
 import { holdChip, milestoneChip } from '../milestoneStatus'
 import { AddMilestoneDialog } from './AddMilestoneDialog'
-import { toDraft } from './milestoneDraft'
 import { MilestoneRow } from './MilestoneRow'
 import { SortableList } from './SortableList'
 import { TaskList } from './TaskList'
@@ -78,7 +77,6 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
                   {handle}
                   <div className="min-w-0 flex-1">
                     <MilestoneRow
-                      key={`${m.id}:${JSON.stringify(toDraft(m))}`}
                       milestone={m}
                       next={milestones[milestones.findIndex((x) => x.id === m.id) + 1]}
                       projectStatus={project.status}

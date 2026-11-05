@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { deleteMilestone, mergeMilestones, updateMilestone, type Milestone, type MilestoneStatus } from '../../../api/milestones'
+import { deleteMilestone, mergeMilestones, updateMilestone, type Milestone, type MilestonePatch, type MilestoneStatus } from '../../../api/milestones'
 import { invalidateProject } from '../../../api/invalidate'
 import type { ProjectStatus } from '../../../api/projects'
 import { toUserMessage } from '../../../lib/errors'
@@ -9,7 +9,7 @@ import { Dialog } from '../../../ui/Dialog'
 import { Field } from '../../../ui/Field'
 import { useToast } from '../../../ui/Toast'
 import { milestoneChip } from '../milestoneStatus'
-import { amountValid, diffDraft, toDraft, touchesPlan, type Draft } from './milestoneDraft'
+import { amountValid, diffDraft, editedFields, toDraft, touchesPlan, type Draft } from './milestoneDraft'
 import { ReasonField } from './ReasonField'
 import { SplitDialog } from './SplitDialog'
 import { TaskList } from './TaskList'
@@ -23,7 +23,12 @@ type Props = { milestone: Milestone; next?: Milestone; projectStatus: ProjectSta
 export function MilestoneRow({ milestone, next, projectStatus, currency }: Props) {
   const toast = useToast()
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<Draft>(() => toDraft(milestone))
+  const saved = toDraft(milestone)
+  const savedKey = JSON.stringify(saved)
+  // `base` = the saved values the draft started from. If the milestone changes underneath (live sync),
+  // a clean row follows silently; a row being edited keeps its edits and offers "Load latest".
+  const [base, setBase] = useState<Draft>(saved)
+  const [draft, setDraft] = useState<Draft>(saved)
   const [reason, setReason] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleteReason, setDeleteReason] = useState('')
@@ -31,7 +36,8 @@ export function MilestoneRow({ milestone, next, projectStatus, currency }: Props
   const [confirmingMerge, setConfirmingMerge] = useState(false)
   const [mergeReason, setMergeReason] = useState('')
 
-  const patch = diffDraft(milestone, draft)
+  const edited = editedFields(base, draft)
+  const patch = diffDraft(milestone, draft, edited) // only what was edited here, never untouched fields
   const dirty = Object.keys(patch).length > 0
   const active = projectStatus === 'active'
   const showReason = active && touchesPlan(patch)
@@ -40,13 +46,31 @@ export function MilestoneRow({ milestone, next, projectStatus, currency }: Props
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }))
 
   const save = useMutation({
-    mutationFn: () => updateMilestone(milestone.id, patch, showReason ? reason.trim() || undefined : undefined),
+    // The payload travels as the variables: onMutate re-renders the row (patch becomes empty) before the request is sent.
+    mutationFn: (vars: { patch: MilestonePatch; reason?: string }) => updateMilestone(milestone.id, vars.patch, vars.reason),
     onSuccess: () => {
       toast.success('Milestone saved')
       return invalidateProject(queryClient, milestone.project_id)
     },
     onError: (err) => toast.error(toUserMessage(err)),
   })
+
+  function saveNow() {
+    const previousBase = base
+    setBase(draft) // what is being saved is no longer an unsaved edit...
+    save.mutate(
+      { patch, reason: showReason ? reason.trim() || undefined : undefined },
+      { onError: () => setBase(previousBase) }, // ...unless the save fails
+    )
+  }
+
+  const changedUnderneath = JSON.stringify(base) !== savedKey
+  if (!save.isPending && changedUnderneath && edited.length === 0) {
+    setBase(saved)
+    setDraft(saved)
+    setReason('')
+  }
+  const stale = !save.isPending && changedUnderneath && edited.length > 0
 
   const remove = useMutation({
     mutationFn: () => deleteMilestone(milestone.id, active ? deleteReason.trim() || undefined : undefined),
@@ -71,6 +95,22 @@ export function MilestoneRow({ milestone, next, projectStatus, currency }: Props
   return (
     <fieldset className="flex flex-col gap-4 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
       <legend className="px-1 font-medium">{milestone.title}</legend>
+
+      {stale && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--warn)] p-3 text-sm">
+          <span>Changed elsewhere. Your edits are kept, and saving sends only the fields you edited.</span>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setBase(saved)
+              setDraft(saved)
+              setReason('')
+            }}
+          >
+            Load latest
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Title">
@@ -123,7 +163,11 @@ export function MilestoneRow({ milestone, next, projectStatus, currency }: Props
             </Button>
           )}
         </div>
-        <Button loading={save.isPending} disabled={!canSave} onClick={() => save.mutate()}>
+        <Button
+          loading={save.isPending}
+          disabled={!canSave}
+          onClick={saveNow}
+        >
           Save changes
         </Button>
       </div>

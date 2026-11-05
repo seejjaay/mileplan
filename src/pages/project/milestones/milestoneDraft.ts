@@ -35,8 +35,21 @@ export function amountValid(d: Draft): boolean {
   return d.amount.trim() !== '' && Number.isFinite(n) && n >= 0
 }
 
-/** Only the fields that differ from the saved milestone. */
-export function diffDraft(m: Milestone, d: Draft): MilestonePatch {
+/** Which patch fields the person has changed in the form since `base` (the values the draft started from). */
+export function editedFields(base: Draft, d: Draft): (keyof MilestonePatch)[] {
+  const edited: (keyof MilestonePatch)[] = []
+  if (d.title.trim() !== base.title.trim()) edited.push('title')
+  if (d.description.trim() !== base.description.trim()) edited.push('description')
+  if (JSON.stringify(criteriaLines(d.criteria)) !== JSON.stringify(criteriaLines(base.criteria))) edited.push('acceptance_criteria')
+  if (d.due_date !== base.due_date) edited.push('due_date')
+  if (Number(d.amount) !== Number(base.amount) || (d.amount.trim() === '') !== (base.amount.trim() === '')) edited.push('amount')
+  if (d.status !== base.status) edited.push('status')
+  if (d.on_hold !== base.on_hold) edited.push('on_hold')
+  return edited
+}
+
+/** Only the fields that differ from the saved milestone (optionally limited to the ones edited here). */
+export function diffDraft(m: Milestone, d: Draft, only?: (keyof MilestonePatch)[]): MilestonePatch {
   const patch: MilestonePatch = {}
   if (d.title.trim() !== m.title) patch.title = d.title.trim()
   if (d.description.trim() !== (m.description ?? '').trim()) patch.description = d.description.trim() || null
@@ -46,6 +59,9 @@ export function diffDraft(m: Milestone, d: Draft): MilestonePatch {
   if (amountValid(d) && Number(d.amount) !== Number(m.amount)) patch.amount = Number(d.amount)
   if (d.status !== m.status) patch.status = d.status
   if (d.on_hold !== m.on_hold) patch.on_hold = d.on_hold
+  if (only) {
+    for (const key of Object.keys(patch) as (keyof MilestonePatch)[]) if (!only.includes(key)) delete patch[key]
+  }
   return patch
 }
 

@@ -37,7 +37,9 @@ function renderDialog(projectStatus: 'active' | 'setup' = 'active') {
   )
 }
 
-beforeEach(() => vi.mocked(splitMilestone).mockResolvedValue('new-id'))
+beforeEach(() => {
+  vi.mocked(splitMilestone).mockResolvedValue('new-id')
+})
 afterEach(() => vi.clearAllMocks())
 
 describe('SplitDialog', () => {
