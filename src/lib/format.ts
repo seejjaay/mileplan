@@ -7,3 +7,9 @@ export function formatDate(iso: string): string {
 export function formatMoney(amount: number | string, currency: string): string {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(Number(amount))
 }
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
