@@ -7,6 +7,7 @@ import { ToastProvider } from '../../ui/Toast'
 import { getProject, type ProjectSummary } from '../../api/projects'
 import ProjectPage from './ProjectPage'
 
+vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn(async () => [{ id: 'a', project_id: 'p1', actor_id: 'x', entity: 'milestone', entity_id: 'm1', action: 'updated', changes: { due_date: ['2026-12-01', '2026-12-15'] }, reason: null, plan_change: true, created_at: '2026-11-05T08:00:00Z', actor: null, acks: [] }]), acknowledge: vi.fn() }))
 vi.mock('../../realtime/useProjectRealtime', () => ({ useProjectRealtime: () => ({ connected: true, reconnecting: false, lastChange: null }) }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), getProject: vi.fn() }))
 
@@ -25,14 +26,14 @@ const project: ProjectSummary = {
   nextDue: null,
 }
 
-function renderAt(path: string) {
+function renderAt(path: string, role: 'admin' | 'client' = 'admin') {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
         <AuthContext.Provider
           value={{
             session: { user: { id: 'u1' } } as Session,
-            profile: { id: 'u1', role: 'admin', full_name: 'CJ', active: true },
+            profile: { id: 'u1', role, full_name: 'CJ', active: true },
             loading: false,
             signOut: async () => {},
           }}
@@ -75,5 +76,18 @@ describe('ProjectPage', () => {
     vi.mocked(getProject).mockRejectedValue({ code: '42501', message: 'denied' })
     renderAt('/projects/p1')
     expect(await screen.findByRole('alert')).toHaveTextContent("You don't have access to this")
+  })
+
+  it('shows the plan-change banner to a client on every tab, and never to the admin', async () => {
+    vi.mocked(getProject).mockResolvedValue(project)
+    renderAt('/projects/p1/files', 'client')
+    expect(await screen.findByRole('region', { name: 'The plan changed' })).toBeInTheDocument()
+  })
+
+  it('does not show the banner to the admin', async () => {
+    vi.mocked(getProject).mockResolvedValue(project)
+    renderAt('/projects/p1/files', 'admin')
+    await screen.findByRole('heading', { name: 'Website rebuild', level: 1 })
+    expect(screen.queryByRole('region', { name: 'The plan changed' })).not.toBeInTheDocument()
   })
 })

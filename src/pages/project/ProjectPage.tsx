@@ -10,6 +10,7 @@ import { useTitle } from '../../lib/useTitle'
 import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
+import { PlanChangeBanner } from './PlanChangeBanner'
 import { projectChip } from './projectStatus'
 import { resolveTab, TABS, type TabKey } from './tabs'
 
@@ -62,6 +63,8 @@ export default function ProjectPage() {
           <span className="text-sm text-[var(--muted)]">{project.percent}% complete</span>
         </div>
       </header>
+
+      <PlanChangeBanner project={project} />
 
       <nav aria-label="Project sections" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex min-w-max gap-1 border-b border-[var(--border)]">

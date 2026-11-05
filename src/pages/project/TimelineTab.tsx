@@ -1,7 +1,5 @@
-import { useInfiniteQuery, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useInfiniteQuery, type UseQueryResult } from '@tanstack/react-query'
 import { listActivity, type ActivityRow } from '../../api/activity'
-import { listDocuments } from '../../api/documents'
-import { listMilestones } from '../../api/milestones'
 import { qk } from '../../api/keys'
 import type { ProjectSummary } from '../../api/projects'
 import { ACTIVITY_PAGE_SIZE } from '../../lib/constants'
@@ -9,6 +7,7 @@ import { describeActivity } from '../../lib/formatChange'
 import { AsyncView } from '../../ui/AsyncView'
 import { Button } from '../../ui/Button'
 import { StatusChip } from '../../ui/StatusChip'
+import { useEntityNames } from './useEntityNames'
 
 function whenLabel(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
@@ -21,16 +20,7 @@ export default function TimelineTab({ project }: { project: ProjectSummary }) {
     queryFn: ({ pageParam }) => listActivity(project.id, { before: pageParam }),
     getNextPageParam: (last) => (last.length === ACTIVITY_PAGE_SIZE ? last[last.length - 1].created_at : undefined),
   })
-  // Current names, so "Milestone — Due date: …" can say which milestone/task/document it was.
-  const milestones = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
-  const documents = useQuery({ queryKey: qk.documents(project.id), queryFn: () => listDocuments(project.id) })
-
-  const names = new Map<string, string>()
-  for (const m of milestones.data ?? []) {
-    names.set(m.id, m.title)
-    for (const t of m.tasks) names.set(t.id, t.title)
-  }
-  for (const d of documents.data ?? []) names.set(d.id, d.title)
+  const names = useEntityNames(project.id) // so "Milestone — Due date: …" can say which one it was
 
   const rows = activity.data?.pages.flat() ?? []
   // AsyncView only reads the status flags and `data`; hand it the flattened pages.
