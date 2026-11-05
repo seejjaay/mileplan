@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { Session } from '@supabase/supabase-js'
+import { AuthContext } from '../../auth/AuthProvider'
 import { listActivity, type ActivityRow } from '../../api/activity'
 import { listDocuments } from '../../api/documents'
 import { listMilestones, type Milestone } from '../../api/milestones'
@@ -37,14 +39,24 @@ const row = (i: number, over: Partial<ActivityRow> = {}): ActivityRow => ({
   reason: null,
   plan_change: false,
   created_at: new Date(Date.UTC(2026, 10, 5, 12, 0, 0) - i * 60_000).toISOString(),
-  actor: { full_name: 'CJ' },
+  actor_name: 'CJ',
+  acks: [],
   ...over,
 })
 
-function renderTab() {
+function renderTab(role: 'admin' | 'client' = 'admin') {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <TimelineTab project={project} />
+      <AuthContext.Provider
+        value={{
+          session: { user: { id: 'u1' } } as Session,
+          profile: { id: 'u1', role, full_name: 'X', active: true },
+          loading: false,
+          signOut: async () => {},
+        }}
+      >
+        <TimelineTab project={project} />
+      </AuthContext.Provider>
     </QueryClientProvider>,
   )
 }
@@ -95,5 +107,33 @@ describe('TimelineTab', () => {
     renderTab()
     await screen.findByRole('listitem')
     expect(screen.queryByRole('button', { name: 'Load older' })).not.toBeInTheDocument()
+  })
+
+  it('shows the admin who acknowledged a plan change and when', async () => {
+    const at = new Date(2026, 10, 6, 14, 2).toISOString() // local time, so the expected text is timezone-proof
+    vi.mocked(listActivity).mockResolvedValue([row(0, { plan_change: true, acks: [{ user_id: 'c1', acked_at: at, acker_name: 'Ana' }] })])
+    renderTab('admin')
+    expect(await screen.findByText('Acknowledged by Ana · Nov 6, 14:02')).toBeInTheDocument()
+  })
+
+  it('shows the admin Not yet acknowledged when nobody has', async () => {
+    vi.mocked(listActivity).mockResolvedValue([row(0, { plan_change: true })])
+    renderTab('admin')
+    expect(await screen.findByText('Not yet acknowledged')).toBeInTheDocument()
+  })
+
+  it('shows no acknowledgement lines on rows that are not plan changes', async () => {
+    vi.mocked(listActivity).mockResolvedValue([row(0, { plan_change: false })])
+    renderTab('admin')
+    await screen.findByRole('listitem')
+    expect(screen.queryByText('Not yet acknowledged')).not.toBeInTheDocument()
+  })
+
+  it('does not show acknowledgement lines to clients', async () => {
+    vi.mocked(listActivity).mockResolvedValue([row(0, { plan_change: true })])
+    renderTab('client')
+    await screen.findByRole('listitem')
+    expect(screen.queryByText('Not yet acknowledged')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Acknowledged by/)).not.toBeInTheDocument()
   })
 })

@@ -5,10 +5,12 @@ import type { Session } from '@supabase/supabase-js'
 import { AuthContext } from '../../auth/AuthProvider'
 import { ToastProvider } from '../../ui/Toast'
 import { listMilestones, type Milestone } from '../../api/milestones'
+import { listPlanChanges, type PlanChange } from '../../api/planChanges'
 import type { ProjectSummary } from '../../api/projects'
 import OverviewTab from './OverviewTab'
 
 vi.mock('../../api/milestones', async (orig) => ({ ...(await orig<typeof import('../../api/milestones')>()), listMilestones: vi.fn() }))
+vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn() }))
 vi.mock('../../api/clients', () => ({ createClient: vi.fn() }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), activateProject: vi.fn() }))
 
@@ -66,6 +68,24 @@ function renderTab(p: ProjectSummary, role: 'admin' | 'client' = 'admin') {
   )
 }
 
+const pending = (id: string, acks: PlanChange['acks'] = []): PlanChange => ({
+  id,
+  project_id: 'p1',
+  actor_id: 'admin',
+  entity: 'milestone',
+  entity_id: 'a',
+  action: 'updated',
+  changes: { due_date: ['2026-12-01', '2026-12-15'] },
+  reason: 'scope grew',
+  plan_change: true,
+  created_at: '2026-11-05T08:00:00Z',
+  actor_name: 'CJ',
+  acks,
+})
+
+beforeEach(() => {
+  vi.mocked(listPlanChanges).mockResolvedValue([])
+})
 afterEach(() => vi.clearAllMocks())
 
 describe('OverviewTab', () => {
@@ -113,5 +133,29 @@ describe('OverviewTab', () => {
     renderTab(project, 'client')
     await screen.findByText('No milestones yet. Add the first one.')
     expect(screen.queryByRole('button', { name: 'Add client & activate' })).not.toBeInTheDocument()
+  })
+
+  it('lists plan changes nobody has acknowledged yet for the admin', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([ms({ id: 'a', title: 'Discovery' })])
+    vi.mocked(listPlanChanges).mockResolvedValue([pending('x'), pending('y', [{ user_id: 'c1', acked_at: '2026-11-05T09:00:00Z', acker_name: 'Ana' }])])
+    renderTab({ ...project, status: 'active' })
+    const section = await screen.findByRole('region', { name: 'Pending acknowledgements' })
+    expect(section).toHaveTextContent('Milestone “Discovery” — Due date: Dec 1, 2026 → Dec 15, 2026. Reason: scope grew')
+    expect(section.querySelectorAll('li')).toHaveLength(1) // the acknowledged one is not pending
+  })
+
+  it('does not render the pending section when there is nothing pending', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([])
+    renderTab({ ...project, status: 'active' })
+    await screen.findByText('No milestones yet. Add the first one.')
+    expect(screen.queryByRole('region', { name: 'Pending acknowledgements' })).not.toBeInTheDocument()
+  })
+
+  it('never shows pending acknowledgements to a client', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([])
+    vi.mocked(listPlanChanges).mockResolvedValue([pending('x')])
+    renderTab({ ...project, status: 'active' }, 'client')
+    await screen.findByText('No milestones yet. Add the first one.')
+    expect(screen.queryByRole('region', { name: 'Pending acknowledgements' })).not.toBeInTheDocument()
   })
 })

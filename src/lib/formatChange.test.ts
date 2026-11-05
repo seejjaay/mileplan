@@ -45,7 +45,8 @@ const row = (over: Partial<ActivityRow>): ActivityRow => ({
   reason: null,
   plan_change: false,
   created_at: '2026-11-05T08:00:00Z',
-  actor: { full_name: 'CJ' },
+  actor_name: 'CJ',
+  acks: [],
   ...over,
 })
 

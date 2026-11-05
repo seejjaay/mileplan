@@ -1,14 +1,13 @@
 import { supabase } from '../lib/supabase'
 import type { ActivityRow } from './activity'
 
-export type Ack = { user_id: string; acked_at: string }
-export type PlanChange = ActivityRow & { acks: Ack[] }
+export type PlanChange = ActivityRow
 
 /** Plan-change activity rows, oldest first, each with the acknowledgements recorded so far. */
 export async function listPlanChanges(projectId: string): Promise<PlanChange[]> {
   const { data, error } = await supabase
     .from('activity')
-    .select('*, actor:profiles!actor_id(full_name), acks:plan_change_acks(user_id, acked_at)')
+    .select('*, actor_name, acks:plan_change_acks(user_id, acked_at, acker_name)')
     .eq('project_id', projectId)
     .eq('plan_change', true)
     .order('created_at', { ascending: true })

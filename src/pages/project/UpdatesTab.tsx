@@ -122,7 +122,7 @@ function UpdateItem({ update }: { update: UpdateRow }) {
     <li className="flex flex-col gap-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
       <p className="flex flex-wrap items-center gap-x-2 text-sm text-[var(--muted)]">
         <span>
-          {update.author?.full_name ?? 'Project team'} · {whenLabel(update.created_at)}
+          {update.author_name ?? 'Project team'} · {whenLabel(update.created_at)}
         </span>
         {update.milestone && <span className="rounded-full border border-[var(--border)] px-2 py-0.5">Re: {update.milestone.title}</span>}
       </p>

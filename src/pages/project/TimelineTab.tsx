@@ -2,7 +2,9 @@ import { useInfiniteQuery, type UseQueryResult } from '@tanstack/react-query'
 import { listActivity, type ActivityRow } from '../../api/activity'
 import { qk } from '../../api/keys'
 import type { ProjectSummary } from '../../api/projects'
+import { useAuth } from '../../auth/AuthProvider'
 import { ACTIVITY_PAGE_SIZE } from '../../lib/constants'
+import { formatAckStamp } from '../../lib/format'
 import { describeActivity } from '../../lib/formatChange'
 import { AsyncView } from '../../ui/AsyncView'
 import { Button } from '../../ui/Button'
@@ -14,6 +16,8 @@ function whenLabel(iso: string): string {
 }
 
 export default function TimelineTab({ project }: { project: ProjectSummary }) {
+  const { profile } = useAuth()
+  const isAdmin = profile?.role === 'admin'
   const activity = useInfiniteQuery({
     queryKey: qk.activity(project.id),
     initialPageParam: undefined as string | undefined,
@@ -38,10 +42,19 @@ export default function TimelineTab({ project }: { project: ProjectSummary }) {
                   <p>{describeActivity(row, { currency: project.currency, subjectName: names.get(row.entity_id) })}</p>
                   <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
                     <span>
-                      {row.actor?.full_name ?? 'Project team'} · {whenLabel(row.created_at)}
+                      {row.actor_name ?? 'Project team'} · {whenLabel(row.created_at)}
                     </span>
                     {row.plan_change && <StatusChip status="attention" label="Plan change" />}
                   </p>
+                  {isAdmin && row.plan_change && (
+                    <div className="text-sm">
+                      {row.acks.length === 0 ? (
+                        <p className="text-[var(--muted)]">Not yet acknowledged</p>
+                      ) : (
+                        row.acks.map((a) => <p key={a.user_id}>{`Acknowledged by ${a.acker_name ?? 'a client'} · ${formatAckStamp(a.acked_at)}`}</p>)
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

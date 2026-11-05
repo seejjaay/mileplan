@@ -7,7 +7,7 @@ import { ToastProvider } from '../../ui/Toast'
 import { getProject, type ProjectSummary } from '../../api/projects'
 import ProjectPage from './ProjectPage'
 
-vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn(async () => [{ id: 'a', project_id: 'p1', actor_id: 'x', entity: 'milestone', entity_id: 'm1', action: 'updated', changes: { due_date: ['2026-12-01', '2026-12-15'] }, reason: null, plan_change: true, created_at: '2026-11-05T08:00:00Z', actor: null, acks: [] }]), acknowledge: vi.fn() }))
+vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn(async () => [{ id: 'a', project_id: 'p1', actor_id: 'x', entity: 'milestone', entity_id: 'm1', action: 'updated', changes: { due_date: ['2026-12-01', '2026-12-15'] }, reason: null, plan_change: true, created_at: '2026-11-05T08:00:00Z', actor_name: null, acks: [] }]), acknowledge: vi.fn() }))
 vi.mock('../../realtime/useProjectRealtime', () => ({ useProjectRealtime: () => ({ connected: true, reconnecting: false, lastChange: null }) }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), getProject: vi.fn() }))
 

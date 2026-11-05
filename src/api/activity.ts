@@ -4,6 +4,8 @@ import { ACTIVITY_PAGE_SIZE } from '../lib/constants'
 export type ActivityEntity = 'project' | 'milestone' | 'task' | 'document' | 'payment' | 'update' | 'review'
 export type ActivityAction = 'created' | 'updated' | 'deleted' | 'status_changed'
 
+export type Ack = { user_id: string; acked_at: string; acker_name?: string | null }
+
 export type ActivityRow = {
   id: string
   project_id: string
@@ -16,14 +18,16 @@ export type ActivityRow = {
   reason: string | null
   plan_change: boolean
   created_at: string
-  actor: { full_name: string | null } | null
+  actor_name: string | null
+  /** plan-change acknowledgements recorded so far (empty for rows that are not plan changes) */
+  acks: Ack[]
 }
 
 /** One page, newest first. Pass the last row's created_at as `before` for the next (older) page. */
 export async function listActivity(projectId: string, { before }: { before?: string } = {}): Promise<ActivityRow[]> {
   let query = supabase
     .from('activity')
-    .select('*, actor:profiles!actor_id(full_name)')
+    .select('*, actor_name, acks:plan_change_acks(user_id, acked_at, acker_name)')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
     .limit(ACTIVITY_PAGE_SIZE)

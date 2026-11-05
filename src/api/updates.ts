@@ -9,14 +9,14 @@ export type UpdateRow = {
   body: string
   attachments: Attachment[]
   created_at: string
-  author: { full_name: string | null } | null
+  author_name: string | null
   milestone: { title: string } | null
 }
 
 export async function listUpdates(projectId: string): Promise<UpdateRow[]> {
   const { data, error } = await supabase
     .from('updates')
-    .select('*, author:profiles!author_id(full_name), milestone:milestones!milestone_id(title)')
+    .select('*, author_name, milestone:milestones!milestone_id(title)')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
   if (error) throw error

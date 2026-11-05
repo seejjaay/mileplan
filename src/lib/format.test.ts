@@ -1,4 +1,4 @@
-import { formatBytes, formatDate, formatMoney } from './format'
+import { formatAckStamp, formatBytes, formatDate, formatMoney } from './format'
 
 describe('formatDate', () => {
   it('formats an ISO date without shifting the day for the local timezone', () => {
@@ -24,5 +24,12 @@ describe('formatBytes', () => {
     [1572864, '1.5 MB'],
   ])('%i -> %s', (bytes, text) => {
     expect(formatBytes(bytes)).toBe(text)
+  })
+})
+
+describe('formatAckStamp', () => {
+  it('writes the local date and 24-hour time', () => {
+    expect(formatAckStamp(new Date(2026, 10, 6, 14, 2).toISOString())).toBe('Nov 6, 14:02')
+    expect(formatAckStamp(new Date(2026, 10, 6, 9, 5).toISOString())).toBe('Nov 6, 09:05')
   })
 })

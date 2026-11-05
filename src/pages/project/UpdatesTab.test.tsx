@@ -39,7 +39,7 @@ const update: UpdateRow = {
   body: 'Wireframes are **done**',
   attachments: [{ path: 'p1/abc-wire.png', name: 'wire.png', size: 2048, mime: 'image/png' }],
   created_at: '2026-11-05T08:00:00Z',
-  author: { full_name: 'CJ' },
+  author_name: 'CJ',
   milestone: { title: 'Discovery' },
 }
 
