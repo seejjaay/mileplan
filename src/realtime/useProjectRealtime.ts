@@ -37,7 +37,8 @@ function keysFor(table: string, projectId: string) {
     case 'documents':
       return [qk.documents(projectId)]
     case 'plan_change_acks':
-      return [qk.planChanges(projectId)]
+      // the Timeline embeds who acknowledged each change, so it must refresh too
+      return [qk.planChanges(projectId), qk.activity(projectId)]
     case 'milestone_reviews':
       return [qk.reviews(projectId), qk.milestones(projectId), qk.planChanges(projectId)]
     default:
@@ -112,7 +113,14 @@ export function useProjectRealtime(projectId: string) {
     })
 
     const onOffline = () => markDown()
-    const onOnline = () => invalidateAll(queryClient, projectId)
+    // The browser is back. If the socket really died the channel reports it (and the pill returns); if it never noticed,
+    // there is nothing to wait for, so don't leave the pill up.
+    const onOnline = () => {
+      clearTimeout(timer)
+      timer = undefined
+      setReconnecting(false)
+      invalidateAll(queryClient, projectId)
+    }
     window.addEventListener('offline', onOffline)
     window.addEventListener('online', onOnline)
 

@@ -126,6 +126,26 @@ describe('useProjectRealtime', () => {
     expect(keysInvalidated(spy)).toContain(JSON.stringify(qk.milestones('p1')))
   })
 
+  it('an acknowledgement refreshes the plan changes AND the timeline (which embeds who acknowledged)', () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    renderHook(() => useProjectRealtime('p1'), { wrapper })
+    fire('plan_change_acks', { eventType: 'INSERT', new: { activity_id: 'a1', user_id: 'u1' } })
+    const keys = keysInvalidated(spy)
+    expect(keys).toContain(JSON.stringify(qk.planChanges('p1')))
+    expect(keys).toContain(JSON.stringify(qk.activity('p1')))
+  })
+
+  it('coming back online hides the pill even if the channel never reported a drop', () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useProjectRealtime('p1'), { wrapper })
+    status('SUBSCRIBED')
+    act(() => void window.dispatchEvent(new Event('offline')))
+    act(() => void vi.advanceTimersByTime(1600))
+    expect(result.current.reconnecting).toBe(true)
+    act(() => void window.dispatchEvent(new Event('online')))
+    expect(result.current.reconnecting).toBe(false)
+  })
+
   it('removes the channel on unmount', () => {
     const { unmount } = renderHook(() => useProjectRealtime('p1'), { wrapper })
     unmount()
