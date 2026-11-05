@@ -9,6 +9,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { toUserMessage } from '../../lib/errors'
 import { formatBytes } from '../../lib/format'
 import { openUrl } from '../../lib/openUrl'
+import { ACCEPT_ATTR, validateUpload } from '../../lib/validateUpload'
 import { AsyncView } from '../../ui/AsyncView'
 import { Button } from '../../ui/Button'
 import { Field } from '../../ui/Field'
@@ -16,7 +17,6 @@ import { Markdown } from '../../ui/Markdown'
 import { useToast } from '../../ui/Toast'
 
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
-const ACCEPT = '.png,.jpg,.jpeg,.webp,.gif,.pdf,.zip'
 
 function whenLabel(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
@@ -47,6 +47,16 @@ function Composer({ project }: { project: ProjectSummary }) {
     onError: (err) => toast.error(toUserMessage(err)),
   })
 
+  function pickFiles(picked: File[]) {
+    const ok: File[] = []
+    for (const f of picked) {
+      const problem = validateUpload(f)
+      if (problem) toast.error(problem)
+      else ok.push(f)
+    }
+    setFiles(ok)
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault()
     if (body.trim() && profile) post.mutate()
@@ -73,8 +83,8 @@ function Composer({ project }: { project: ProjectSummary }) {
             key={fileInputKey}
             type="file"
             multiple
-            accept={ACCEPT}
-            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            accept={ACCEPT_ATTR}
+            onChange={(e) => pickFiles(Array.from(e.target.files ?? []))}
             className={`${inputClass} py-2`}
           />
         </Field>

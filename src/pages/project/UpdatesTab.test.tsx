@@ -128,6 +128,16 @@ describe('UpdatesTab', () => {
     expect(openUrl).toHaveBeenCalledWith('https://signed.example/file')
   })
 
+  it('rejects a disallowed attachment when it is picked and never sends it', async () => {
+    renderTab()
+    const user = userEvent.setup({ applyAccept: false })
+    await user.type(await screen.findByLabelText('Write an update (Markdown)'), 'Hello')
+    await user.upload(screen.getByLabelText('Attachments'), new File(['<html>'], 'invoice.html', { type: 'text/html' }))
+    expect(await screen.findByText(/invoice\.html/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Post update' }))
+    await waitFor(() => expect(postUpdate).toHaveBeenCalledWith(expect.objectContaining({ files: [] })))
+  })
+
   it('shows clients the list with no composer', async () => {
     renderTab('client')
     expect(await screen.findByText('done')).toBeInTheDocument()

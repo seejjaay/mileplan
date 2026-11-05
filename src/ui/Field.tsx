@@ -21,7 +21,7 @@ export function Field({ label, error, children }: Props) {
         'aria-invalid': error ? true : undefined,
       })}
       {error && (
-        <p id={errorId} className="text-sm text-[var(--danger)]">
+        <p id={errorId} role="alert" className="text-sm text-[var(--danger)]">
           {error}
         </p>
       )}
