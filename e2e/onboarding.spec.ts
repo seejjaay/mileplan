@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { adminServiceClient } from '../tests/integration/env'
+import { expectNoHorizontalScroll, signInAs } from './helpers'
 
 const CARA_EMAIL = 'cara@client-c.test'
 const CARA_PASSWORD = 'cara-new-pw-1'
@@ -10,19 +11,6 @@ async function removeCara() {
   await service.from('redeem_attempts').delete().gte('at', '1970-01-01') // all local runs share one IP; keep the rate limit out of the way
   const { data } = await service.auth.admin.listUsers({ perPage: 200 })
   for (const u of data.users.filter((x) => x.email === CARA_EMAIL)) await service.auth.admin.deleteUser(u.id)
-}
-
-async function signInAs(page: Page, email: string, password: string) {
-  await page.goto('/login')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
-}
-
-async function expectNoHorizontalScroll(page: Page) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-  expect(overflow).toBeLessThanOrEqual(0)
 }
 
 test.beforeAll(removeCara)

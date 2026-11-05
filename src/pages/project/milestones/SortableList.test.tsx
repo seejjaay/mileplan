@@ -121,6 +121,7 @@ describe('useReorder', () => {
     await moveDown('Reorder Alpha')
     await waitFor(() => expect(apply).toHaveBeenCalledWith(['b', 'a', 'c']))
     expect(names()).toEqual(['Bravo', 'Alpha', 'Charlie'])
+    expect(await screen.findByText('Order saved')).toBeInTheDocument()
   })
 
   it('rolls back to the server order and toasts the reason when the server rejects', async () => {

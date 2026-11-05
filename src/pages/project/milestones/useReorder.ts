@@ -21,6 +21,7 @@ export function useReorder<TCache>(
       if (previous) queryClient.setQueryData<TCache>(queryKey, optimistic(previous, ids))
       return { previous }
     },
+    onSuccess: () => toast.success('Order saved'),
     onError: (err, _ids, context) => {
       if (context?.previous) queryClient.setQueryData(queryKey, context.previous)
       toast.error(toUserMessage(err))
