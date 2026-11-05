@@ -11,6 +11,8 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
 const ClientsPage = lazy(() => import('./pages/admin/ClientsPage'))
 const MyProjectsPage = lazy(() => import('./pages/client/MyProjectsPage'))
+const NewProjectPage = lazy(() => import('./pages/admin/NewProjectPage'))
+const ProjectPage = lazy(() => import('./pages/project/ProjectPage'))
 
 function Home() {
   const { profile } = useAuth()
@@ -29,7 +31,9 @@ export function AppRoutes() {
           <Route index element={<Home />} />
           <Route element={<RequireAdmin />}>
             <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/projects/new" element={<NewProjectPage />} />
           </Route>
+          <Route path="/projects/:id/:tab?" element={<ProjectPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

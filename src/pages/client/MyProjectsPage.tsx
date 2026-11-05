@@ -1,28 +1,17 @@
+import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabase'
+import { listProjects } from '../../api/projects'
+import { qk } from '../../api/keys'
+import { formatDate } from '../../lib/format'
 import { useTitle } from '../../lib/useTitle'
 import { AsyncView } from '../../ui/AsyncView'
-import { StatusChip, type ChipStatus } from '../../ui/StatusChip'
-
-type ProjectRow = { id: string; title: string; status: 'setup' | 'active' | 'completed' | 'terminated' }
-
-const chip: Record<ProjectRow['status'], { status: ChipStatus; label: string }> = {
-  setup: { status: 'upcoming', label: 'Setting up' },
-  active: { status: 'active', label: 'Active' },
-  completed: { status: 'done', label: 'Completed' },
-  terminated: { status: 'inactive', label: 'Terminated' },
-}
+import { ProgressBar } from '../../ui/ProgressBar'
+import { StatusChip } from '../../ui/StatusChip'
+import { projectChip } from '../project/projectStatus'
 
 export default function MyProjectsPage() {
   useTitle('My projects')
-  const query = useQuery({
-    queryKey: ['projects'],
-    queryFn: async (): Promise<ProjectRow[]> => {
-      const { data, error } = await supabase.from('projects').select('id, title, status').order('created_at', { ascending: false })
-      if (error) throw error
-      return data as ProjectRow[]
-    },
-  })
+  const query = useQuery({ queryKey: qk.projects(), queryFn: listProjects })
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">My projects</h1>
@@ -31,16 +20,29 @@ export default function MyProjectsPage() {
         onRetry={() => void query.refetch()}
         empty={<p className="text-[var(--muted)]">No projects yet — CJ will add you once your project starts.</p>}
       >
-        {(projects) => (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {projects.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
-                <span>{p.title}</span>
-                <StatusChip {...chip[p.status]} />
-              </li>
-            ))}
-          </ul>
-        )}
+        {(projects) =>
+          projects.length === 1 ? (
+            <Navigate to={`/projects/${projects[0].id}`} replace />
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {projects.map((p) => (
+                <li key={p.id}>
+                  <Link to={`/projects/${p.id}`} className="flex h-full flex-col gap-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="font-medium">{p.title}</span>
+                      <StatusChip {...projectChip[p.status]} />
+                    </span>
+                    <ProgressBar value={p.percent} label={`${p.title} progress`} />
+                    <span className="text-sm text-[var(--muted)]">
+                      {p.percent}% complete
+                      {p.nextDue ? ` · Next: ${p.nextDue.title}, ${formatDate(p.nextDue.due_date)}` : ''}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )
+        }
       </AsyncView>
     </div>
   )
