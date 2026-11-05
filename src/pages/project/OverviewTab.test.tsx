@@ -60,7 +60,7 @@ function renderTab(p: ProjectSummary, role: 'admin' | 'client' = 'admin', marked
             signOut: async () => {},
           }}
         >
-          <ChangeMarkersContext.Provider value={{ milestones: new Set(marked), tabs: new Set() }}>
+          <ChangeMarkersContext.Provider value={{ milestones: new Set(marked), tabs: new Set(), tick: null }}>
             <MemoryRouter>
               <OverviewTab project={p} />
             </MemoryRouter>
@@ -106,9 +106,10 @@ describe('OverviewTab', () => {
     ])
     renderTab(project)
     expect(await screen.findByText('Discovery')).toBeInTheDocument()
-    expect(screen.getByText('Approved')).toBeInTheDocument()
+    expect(screen.getByText('Done')).toBeInTheDocument()
     expect(screen.getByText('In review')).toBeInTheDocument()
     expect(screen.getByText('On hold')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Milestone route' })).toBeInTheDocument()
   })
 
   it('shows the empty copy only after an empty result', async () => {

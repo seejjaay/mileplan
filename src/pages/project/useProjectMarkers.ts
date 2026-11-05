@@ -19,6 +19,6 @@ export function useProjectMarkers(projectId: string): ChangeMarkers {
   return useMemo(() => {
     const taskMilestone = new Map<string, string>()
     for (const m of milestones.data ?? []) for (const t of m.tasks) taskMilestone.set(t.id, m.id)
-    return changedSince(rows.data ?? [], since, profile?.id ?? '', taskMilestone)
+    return { ...changedSince(rows.data ?? [], since, profile?.id ?? '', taskMilestone), tick: null }
   }, [rows.data, milestones.data, since, profile?.id])
 }

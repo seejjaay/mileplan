@@ -71,7 +71,7 @@ function renderTab(status: ProjectSummary['status'] = 'active', role: 'admin' | 
             signOut: async () => {},
           }}
         >
-          <ChangeMarkersContext.Provider value={{ milestones: new Set(marked), tabs: new Set() }}>
+          <ChangeMarkersContext.Provider value={{ milestones: new Set(marked), tabs: new Set(), tick: null }}>
             <MemoryRouter>
               <MilestonesTab project={project(status)} />
             </MemoryRouter>

@@ -25,3 +25,154 @@ h1, h2, h3 {
 .skip-link:focus {
   top: 0.5rem;
 }
+
+/* ---- Route line: the project as a route of mile markers ------------------------------------------------- */
+.route {
+  --marker: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.route-step {
+  position: relative;
+  display: flex;
+  gap: 0.875rem;
+  padding-bottom: 1.5rem;
+}
+.route-step:last-child {
+  padding-bottom: 0;
+}
+.route-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.25;
+}
+
+.route-marker {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--marker);
+  height: var(--marker);
+  border-radius: 9999px;
+  box-sizing: border-box;
+}
+.route-marker--done {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.route-marker--current {
+  border: 2px solid var(--accent);
+  background: var(--surface);
+}
+.route-marker--current::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--accent);
+}
+.route-marker--current::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 2px solid var(--accent);
+  animation: route-pulse 2.4s ease-out infinite;
+}
+.route-marker--future {
+  border: 2px dashed var(--muted);
+  background: var(--surface);
+}
+.route-marker--tick {
+  animation: route-tick 0.5s ease-out;
+}
+
+/* Connector from a marker to the next one: vertical on phones */
+.route-seg {
+  position: absolute;
+  left: calc(var(--marker) / 2 - 1px);
+  top: var(--marker);
+  width: 2px;
+  height: calc(100% - var(--marker));
+  transform-origin: top;
+}
+.route-seg--reached {
+  background: var(--accent);
+  animation: route-draw-y 0.6s ease-out both;
+  animation-delay: calc(var(--i) * 140ms);
+}
+.route-seg--ahead {
+  background: repeating-linear-gradient(to bottom, var(--muted) 0 4px, transparent 4px 8px);
+}
+
+/* From sm up: horizontal, one column per milestone; a long plan scrolls inside the route, not the page */
+@media (min-width: 640px) {
+  .route {
+    display: grid;
+    grid-template-columns: repeat(var(--n), minmax(9rem, 1fr));
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+  .route-step {
+    flex-direction: column;
+    gap: 0.625rem;
+    padding-bottom: 0;
+    padding-right: 1rem;
+  }
+  .route-seg {
+    left: var(--marker);
+    top: calc(var(--marker) / 2 - 1px);
+    width: calc(100% - var(--marker));
+    height: 2px;
+    transform-origin: left;
+  }
+  .route-seg--reached {
+    animation-name: route-draw-x;
+  }
+  .route-seg--ahead {
+    background: repeating-linear-gradient(to right, var(--muted) 0 4px, transparent 4px 8px);
+  }
+}
+
+@keyframes route-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes route-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes route-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes route-tick {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

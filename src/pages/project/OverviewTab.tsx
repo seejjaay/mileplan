@@ -6,15 +6,14 @@ import { listPlanChanges } from '../../api/planChanges'
 import { qk } from '../../api/keys'
 import type { ProjectSummary } from '../../api/projects'
 import { useAuth } from '../../auth/AuthProvider'
-import { formatDate, formatMoney } from '../../lib/format'
+import { formatMoney } from '../../lib/format'
 import { describeActivity } from '../../lib/formatChange'
 import { AsyncView } from '../../ui/AsyncView'
 import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
-import { StatusChip } from '../../ui/StatusChip'
 import { ActivateDialog } from './ActivateDialog'
+import { RouteLine } from './RouteLine'
 import { useChangeMarkers } from './changeMarkers'
-import { holdChip, milestoneChip } from './milestoneStatus'
 import { useEntityNames } from './useEntityNames'
 
 export default function OverviewTab({ project }: { project: ProjectSummary }) {
@@ -24,7 +23,7 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const planChanges = useQuery({ queryKey: qk.planChanges(project.id), queryFn: () => listPlanChanges(project.id), enabled: isAdmin })
   const names = useEntityNames(project.id)
-  const changed = useChangeMarkers().milestones
+  const { tick } = useChangeMarkers()
   const waiting = (planChanges.data ?? []).filter((c) => c.acks.length === 0)
 
   return (
@@ -78,21 +77,7 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
             </div>
           }
         >
-          {(milestones) => (
-            <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {milestones.map((m) => (
-                <li key={m.id} className="flex flex-col gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
-                  <span className="font-medium">{m.title}</span>
-                  <span className="flex flex-wrap gap-2">
-                    <StatusChip {...milestoneChip[m.status]} />
-                    {m.on_hold && <StatusChip {...holdChip} />}
-                    {changed.has(m.id) && <StatusChip status="attention" label="Updated" />}
-                  </span>
-                  {m.due_date && <span className="text-sm text-[var(--muted)]">Due {formatDate(m.due_date)}</span>}
-                </li>
-              ))}
-            </ol>
-          )}
+          {(milestones) => <RouteLine milestones={milestones} tick={tick} />}
         </AsyncView>
       </section>
 

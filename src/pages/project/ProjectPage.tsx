@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ComponentType } from 'react'
+import { lazy, Suspense, useMemo, type ComponentType } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getProject, type ProjectSummary } from '../../api/projects'
@@ -15,6 +15,7 @@ import { PlanChangeBanner } from './PlanChangeBanner'
 import { projectChip } from './projectStatus'
 import { resolveTab, TABS, type TabKey } from './tabs'
 import { useProjectMarkers } from './useProjectMarkers'
+import type { ChangeMarkers } from './changeMarkers'
 
 const PANELS: Record<TabKey, React.LazyExoticComponent<ComponentType<{ project: ProjectSummary }>>> = {
   overview: lazy(() => import('./OverviewTab')),
@@ -33,8 +34,12 @@ export default function ProjectPage() {
   const tab = resolveTab(rawTab)
   const query = useQuery({ queryKey: qk.project(id), queryFn: () => getProject(id), enabled: !!id })
   const project = query.data
-  const { reconnecting } = useProjectRealtime(id)
-  const markers = useProjectMarkers(id)
+  const { reconnecting, lastChange } = useProjectRealtime(id)
+  const visit = useProjectMarkers(id)
+  const markers = useMemo<ChangeMarkers>(
+    () => ({ ...visit, tick: lastChange ? { id: lastChange.id, at: lastChange.at } : null }),
+    [visit, lastChange],
+  )
   useTitle(project ? project.title : 'Project')
 
   if (query.isPending) return <Skeleton />
