@@ -11,6 +11,10 @@ describe('toUserMessage', () => {
     expect(toUserMessage({ status: 403, message: 'forbidden' })).toBe("You don't have access to this")
   })
 
+  it('maps MP001 (closed project) to the lock copy', () => {
+    expect(toUserMessage({ code: 'MP001', message: 'project is closed' })).toBe('This project is closed. Reopen it to make changes.')
+  })
+
   it('returns the message for other errors', () => {
     expect(toUserMessage(new Error('Network down'))).toBe('Network down')
   })

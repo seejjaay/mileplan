@@ -60,12 +60,29 @@ describe('useProjectRealtime', () => {
     expect(keys).not.toContain(JSON.stringify(qk.updates('p1')))
   })
 
+  it('subscribes to payment requests and payments of the project', () => {
+    renderHook(() => useProjectRealtime('p1'), { wrapper })
+    expect(handlers.find((h) => h.table === 'payment_requests')?.filter).toBe('project_id=eq.p1')
+    expect(handlers.find((h) => h.table === 'payments')?.filter).toBe('project_id=eq.p1')
+  })
+
+  it('a payments event refreshes payments, the project and the dashboard', () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    renderHook(() => useProjectRealtime('p1'), { wrapper })
+    fire('payments', { eventType: 'INSERT', new: { id: 'pay1' } })
+    const keys = keysInvalidated(spy)
+    expect(keys).toContain(JSON.stringify(qk.payments('p1')))
+    expect(keys).toContain(JSON.stringify(qk.project('p1')))
+    expect(keys).toContain(JSON.stringify(qk.projects()))
+    expect(keys).not.toContain(JSON.stringify(qk.updates('p1')))
+  })
+
   it('an activity event refreshes every project key (it is the reliable signal for deletes)', () => {
     const spy = vi.spyOn(queryClient, 'invalidateQueries')
     renderHook(() => useProjectRealtime('p1'), { wrapper })
     fire('activity', { eventType: 'INSERT', new: { entity: 'milestone', entity_id: 'm1', action: 'deleted' } })
     const keys = keysInvalidated(spy)
-    for (const key of [qk.milestones('p1'), qk.project('p1'), qk.projects(), qk.updates('p1'), qk.documents('p1'), qk.activity('p1'), qk.planChanges('p1'), qk.reviews('p1')]) {
+    for (const key of [qk.milestones('p1'), qk.project('p1'), qk.projects(), qk.updates('p1'), qk.documents('p1'), qk.activity('p1'), qk.planChanges('p1'), qk.reviews('p1'), qk.payments('p1')]) {
       expect(keys).toContain(JSON.stringify(key))
     }
   })

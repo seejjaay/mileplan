@@ -20,6 +20,7 @@ function invalidateAll(queryClient: QueryClient, projectId: string) {
     qk.activity(projectId),
     qk.planChanges(projectId),
     qk.reviews(projectId),
+    qk.payments(projectId),
   ]) {
     void queryClient.invalidateQueries({ queryKey })
   }
@@ -41,6 +42,9 @@ function keysFor(table: string, projectId: string) {
       return [qk.planChanges(projectId), qk.activity(projectId)]
     case 'milestone_reviews':
       return [qk.reviews(projectId), qk.milestones(projectId), qk.planChanges(projectId)]
+    case 'payment_requests':
+    case 'payments':
+      return [qk.payments(projectId), qk.project(projectId), qk.projects()]
     default:
       return []
   }
@@ -99,6 +103,8 @@ export function useProjectRealtime(projectId: string) {
       ['tasks', `project_id=eq.${projectId}`],
       ['updates', `project_id=eq.${projectId}`],
       ['documents', `project_id=eq.${projectId}`],
+      ['payment_requests', `project_id=eq.${projectId}`],
+      ['payments', `project_id=eq.${projectId}`],
       ['activity', `project_id=eq.${projectId}`],
       ['plan_change_acks', undefined],
       ['milestone_reviews', undefined],
