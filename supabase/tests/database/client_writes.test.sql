@@ -8,6 +8,9 @@ insert into public.projects (id, title, status) values
 insert into public.project_members (project_id, user_id) values
   ('00000000-0000-0000-0000-0000000000a1', tests.get_user('ana@client-a.test')),
   ('00000000-0000-0000-0000-0000000000a2', tests.get_user('ben@client-b.test'));
+insert into public.payment_requests (id, project_id, title, amount, due_date) values
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1', 'Deposit', 50, current_date + 1);
+
 insert into public.milestones (id, project_id, title, status) values
   ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 'In review', 'in_review'),
   ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000a1', 'Planned', 'planned');
@@ -21,8 +24,8 @@ insert into public.activity (id, project_id, actor_id, entity, entity_id, action
 select tests.authenticate_as(tests.get_user('ana@client-a.test'));
 
 -- payments
-select lives_ok(format($f$insert into public.payments (project_id, amount, status, submitted_by) values ('00000000-0000-0000-0000-0000000000a1', 50, 'pending', %L)$f$, tests.get_user('ana@client-a.test')), 'payments: client inserts pending proof');
-select throws_ok(format($f$insert into public.payments (project_id, amount, status, submitted_by) values ('00000000-0000-0000-0000-0000000000a1', 50, 'confirmed', %L)$f$, tests.get_user('ana@client-a.test')), '42501', null, 'payments: client cannot insert confirmed');
+select lives_ok(format($f$insert into public.payments (project_id, request_id, amount, status, submitted_by) values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000c1', 50, 'pending', %L)$f$, tests.get_user('ana@client-a.test')), 'payments: client inserts pending proof');
+select throws_ok(format($f$insert into public.payments (project_id, request_id, amount, status, submitted_by) values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000c1', 50, 'confirmed', %L)$f$, tests.get_user('ana@client-a.test')), '42501', null, 'payments: client cannot insert confirmed');
 select throws_ok(format($f$insert into public.payments (project_id, amount, status, submitted_by) values ('00000000-0000-0000-0000-0000000000a2', 50, 'pending', %L)$f$, tests.get_user('ana@client-a.test')), '42501', null, 'payments: client cannot insert into other project');
 
 -- milestone_reviews

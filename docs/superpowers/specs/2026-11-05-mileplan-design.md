@@ -65,8 +65,10 @@ Every list or data screen has distinct **loading** (skeleton), **error** (messag
     - Upload a signed document (kind, version, signed date). The SHA-256 is computed in the browser and stored.
     - Superseding a document keeps the old version visible, marked `superseded`.
   - **Payments:**
-    - List of payments, with confirm or reject (with a note) on client proofs
-    - Admin can also log a payment directly, for example cash
+    - Payments are agreed with the client outside the app. The admin adds **scheduled payments** to the tracker: a label, an amount, a due date and, optionally, the milestone each belongs to
+    - Each scheduled payment shows a derived state: Paid, Proof sent, Partially paid, Overdue or Due
+    - The client uploads proof against a scheduled payment. The admin confirms it, or rejects it with a note
+    - The admin can also record a payment directly (cash, or proof sent by chat), with or without proof
   - **Messages:** realtime thread
   - **Timeline:** the full activity log with diffs
   - **Import plan:**
@@ -78,7 +80,7 @@ Every list or data screen has distinct **loading** (skeleton), **error** (messag
 - **`/` My projects:** cards. If there's only one project, the client goes straight to it.
 - **`/projects/:id`:** the same tabs, read-only except for these client actions:
   - Milestone in `in_review`: **Approve** or **Request changes** (a comment is required for Request changes)
-  - Payments: **Upload proof** against a milestone (amount, method, reference, image or PDF)
+  - Payments: **Upload proof** against a scheduled payment (amount, method, reference, image or PDF)
   - Messages: send
   - Plan-change banner: **Acknowledge**
 - An "Updated since your last visit" marker appears on changed milestones and tabs. It's computed from `activity.created_at` compared with the client's `last_seen_at` for that project.
@@ -129,8 +131,10 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   - `milestone_id`, `user_id`
   - `decision` (`approved` | `changes_requested`)
   - `comment`
-- **`payments`**
-  - `project_id`, `milestone_id null`
+- **`payment_requests`** (the schedule)
+  - `project_id`, `milestone_id null`, `title`, `amount`, `due_date`, `created_by`
+- **`payments`** (submissions and receipts against a request)
+  - `project_id`, `request_id`, `milestone_id null` (both copied from the request by trigger)
   - `amount`, `method`, `reference`, `paid_on date`
   - `proof_path null`
   - `status` (`pending` | `confirmed` | `rejected`)
@@ -144,7 +148,7 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   - `last_read_at`
 - **`activity`**
   - `project_id`, `actor_id`
-  - `entity` (`project` | `milestone` | `task` | `document` | `payment` | `update` | `review`)
+  - `entity` (`project` | `milestone` | `task` | `document` | `payment` | `payment_request` | `update` | `review`)
   - `entity_id`
   - `action` (`created` | `updated` | `deleted` | `status_changed`)
   - `changes jsonb` (`{field: [old, new]}`), `reason text`
@@ -163,7 +167,7 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   - a milestone is inserted or deleted
   - a milestone's `amount`, `due_date`, `title`, `description` or `acceptance_criteria` changes
 - `reason` gets from the app to the trigger through a transaction-local setting (`set_config('mileplan.reason', …, true)`), wrapped in an RPC.
-- `payments.status → confirmed` doesn't move the milestone automatically. Instead, confirmed payments covering ≥ `milestone.amount` mark the milestone `paid` (a trigger). Admin can still override.
+- Payments never change a milestone's status. A milestone's status is the admin's to set. A request's state is derived from its confirmed and pending payments and the date.
 - A milestone moves to `approved` only from `in_review`, and only by a client review or an admin.
 - When a project is `completed` or `terminated`, a trigger blocks writes to its children, except messages, which stay open for 30 days after close.
 
@@ -178,7 +182,8 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
 | profiles | self, plus co-members of visible projects | self: `full_name`, `avatar_path` | all |
 | projects, milestones, tasks, updates, documents | `can_see` | — | all |
 | milestone_reviews | `can_see` | insert only, when the milestone is `in_review` and the reviewer is self | all |
-| payments | `can_see` | insert with `status=pending`, `submitted_by=self` | all |
+| payment_requests | `can_see` | none | all |
+| payments | `can_see` | insert with `status=pending`, `submitted_by=self`, against a request of the project | all |
 | messages | `can_see` | insert with `sender_id=self`; update own body within 15 min | all |
 | message_reads, project_members.last_seen_at | own rows | own rows | all |
 | activity | `can_see` | — (triggers only) | read |
@@ -307,7 +312,7 @@ Each template is Markdown with `{{placeholders}}` and exports to PDF or DOCX. Th
   2. Admin adds the client and activates the project.
   3. Client redeems the setup link.
   4. Admin moves M1 to in_review, and the client approves it.
-  5. Client uploads a payment proof, and admin confirms it. M1 becomes paid.
+  5. Admin schedules a payment against M1. The client uploads a proof, and the admin confirms it. The request shows Paid and the Overview totals update.
   6. Admin changes the M2 due date with a reason. The client sees it live and acknowledges it, and the admin sees the acknowledgement.
   7. Messages are exchanged live.
   8. The timeline shows every step.
