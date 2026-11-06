@@ -11,7 +11,8 @@ const TAB_FOR: Record<ActivityEntity, TabKey[]> = {
   review: ['milestones'],
   update: ['updates'],
   document: ['files'],
-  payment: [],
+  payment: ['payments'],
+  payment_request: ['payments'],
 }
 
 /**

@@ -31,6 +31,7 @@ const ENTITY_WORD: Record<ActivityEntity, string> = {
   task: 'Task',
   document: 'Document',
   payment: 'Payment',
+  payment_request: 'Scheduled payment',
   update: 'Update',
   review: 'Review',
 }

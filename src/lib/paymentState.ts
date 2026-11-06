@@ -3,6 +3,9 @@ export type PaymentLike = { amount: number; status: PaymentStatus }
 export type RequestLike = { amount: number; due_date: string; payments: PaymentLike[] }
 export type RequestStateName = 'paid' | 'proof_sent' | 'partially_paid' | 'overdue' | 'due'
 
+/** Today as YYYY-MM-DD in the viewer's own time zone (en-CA prints dates in that order). */
+export const todayISO = () => new Date().toLocaleDateString('en-CA')
+
 /** Whole cents, so float noise (0.1 + 0.2) never decides a state or shows up in a total. */
 const cents = (n: number) => Math.round(Number(n) * 100)
 

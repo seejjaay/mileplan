@@ -22,6 +22,7 @@ const PANELS: Record<TabKey, React.LazyExoticComponent<ComponentType<{ project: 
   milestones: lazy(() => import('./milestones/MilestonesTab')),
   updates: lazy(() => import('./UpdatesTab')),
   files: lazy(() => import('./FilesTab')),
+  payments: lazy(() => import('./payments/PaymentsTab')),
   timeline: lazy(() => import('./TimelineTab')),
 }
 

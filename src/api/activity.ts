@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { ACTIVITY_PAGE_SIZE } from '../lib/constants'
 
-export type ActivityEntity = 'project' | 'milestone' | 'task' | 'document' | 'payment' | 'update' | 'review'
+export type ActivityEntity = 'project' | 'milestone' | 'task' | 'document' | 'payment' | 'payment_request' | 'update' | 'review'
 export type ActivityAction = 'created' | 'updated' | 'deleted' | 'status_changed'
 
 export type Ack = { user_id: string; acked_at: string; acker_name?: string | null }
