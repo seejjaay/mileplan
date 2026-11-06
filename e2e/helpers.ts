@@ -5,7 +5,8 @@ export async function signInAs(page: Page, email: string, password: string) {
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
+  // Local GoTrue occasionally takes >5s on a cold stack; give sign-in room without loosening other assertions.
+  await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible({ timeout: 15_000 })
 }
 
 export async function expectNoHorizontalScroll(page: Page) {
@@ -14,6 +15,6 @@ export async function expectNoHorizontalScroll(page: Page) {
 }
 
 /** A toast with this text is on screen (the newest one if several share the text). */
-export async function expectToast(page: Page, text: string) {
-  await expect(page.getByText(text, { exact: true }).last()).toBeVisible()
+export async function expectToast(page: Page, text: string, timeout?: number) {
+  await expect(page.getByText(text, { exact: true }).last()).toBeVisible({ timeout })
 }
