@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { paymentTotals, todayISO, type RequestLike } from '../lib/paymentState'
 
 export type ProjectStatus = 'setup' | 'active' | 'completed' | 'terminated'
 
@@ -16,7 +17,9 @@ export type Project = {
 }
 
 export type DueMilestone = { title: string; due_date: string }
-export type ProjectSummary = Project & { percent: number; nextDue: DueMilestone | null }
+/** Money across the schedule: scheduled and paid are sums, outstanding is the shortfall (never below 0), overdue counts late requests. */
+export type PaymentSummary = { scheduled: number; paid: number; outstanding: number; overdue: number }
+export type ProjectSummary = Project & { percent: number; nextDue: DueMilestone | null } & PaymentSummary
 
 type MilestoneLite = { title: string; due_date: string | null; status: string }
 
@@ -37,12 +40,17 @@ export function nextDueMilestone(milestones: MilestoneLite[]): DueMilestone | nu
 }
 
 const COLUMNS =
-  'id, title, summary, status, currency, start_date, end_date, activated_at, closed_at, created_at, milestones(title, due_date, status)'
+  'id, title, summary, status, currency, start_date, end_date, activated_at, closed_at, created_at, milestones(title, due_date, status), payment_requests(amount, due_date, payments(amount, status))'
 
-type Row = Project & { milestones: MilestoneLite[] }
+type Row = Project & { milestones: MilestoneLite[]; payment_requests: RequestLike[] }
 
-function toSummary({ milestones, ...project }: Row): ProjectSummary {
-  return { ...project, percent: percentComplete(milestones.map((m) => m.status)), nextDue: nextDueMilestone(milestones) }
+export function toSummary({ milestones, payment_requests, ...project }: Row): ProjectSummary {
+  return {
+    ...project,
+    percent: percentComplete(milestones.map((m) => m.status)),
+    nextDue: nextDueMilestone(milestones),
+    ...paymentTotals(payment_requests ?? [], todayISO()),
+  }
 }
 
 export async function listProjects(): Promise<ProjectSummary[]> {

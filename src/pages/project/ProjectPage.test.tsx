@@ -25,6 +25,10 @@ const project: ProjectSummary = {
   created_at: '2026-11-01T00:00:00Z',
   percent: 40,
   nextDue: null,
+  scheduled: 0,
+  paid: 0,
+  outstanding: 0,
+  overdue: 0,
 }
 
 function renderAt(path: string, role: 'admin' | 'client' = 'admin') {

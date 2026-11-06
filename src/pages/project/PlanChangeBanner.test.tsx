@@ -31,6 +31,10 @@ const project: ProjectSummary = {
   created_at: '2026-11-01T00:00:00Z',
   percent: 0,
   nextDue: null,
+  scheduled: 0,
+  paid: 0,
+  outstanding: 0,
+  overdue: 0,
 }
 
 const change = (id: string, over: Partial<PlanChange> = {}): PlanChange => ({

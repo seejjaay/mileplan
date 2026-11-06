@@ -19,6 +19,10 @@ const base: ProjectSummary = {
   created_at: '2026-11-01T00:00:00Z',
   percent: 0,
   nextDue: null,
+  scheduled: 0,
+  paid: 0,
+  outstanding: 0,
+  overdue: 0,
 }
 
 function renderPage() {
@@ -55,5 +59,19 @@ describe('MyProjectsPage', () => {
     renderPage()
     expect(screen.queryByText(/No projects yet/)).not.toBeInTheDocument()
     expect(await screen.findByText('No projects yet — CJ will add you once your project starts.')).toBeInTheDocument()
+  })
+})
+
+describe('MyProjectsPage payments', () => {
+  it('cards show the outstanding amount and the overdue count', async () => {
+    vi.mocked(listProjects).mockResolvedValue([
+      { ...base, scheduled: 3000, paid: 1000, outstanding: 2000, overdue: 1 },
+      { ...base, id: 'p2', title: 'App', scheduled: 0, paid: 0, outstanding: 0, overdue: 0 },
+    ])
+    renderPage()
+    const card = await screen.findByRole('link', { name: /Website rebuild/ })
+    expect(card).toHaveTextContent('Outstanding ₱2,000.00')
+    expect(card).toHaveTextContent('1 overdue')
+    expect(screen.getByRole('link', { name: /App/ })).not.toHaveTextContent('Outstanding')
   })
 })

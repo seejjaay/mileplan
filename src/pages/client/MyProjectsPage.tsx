@@ -7,6 +7,7 @@ import { useTitle } from '../../lib/useTitle'
 import { AsyncView } from '../../ui/AsyncView'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
+import { OutstandingLine } from '../project/payments/OutstandingLine'
 import { projectChip } from '../project/projectStatus'
 
 export default function MyProjectsPage() {
@@ -37,6 +38,7 @@ export default function MyProjectsPage() {
                       {p.percent}% complete
                       {p.nextDue ? ` · Next: ${p.nextDue.title}, ${formatDate(p.nextDue.due_date)}` : ''}
                     </span>
+                    <OutstandingLine project={p} />
                   </Link>
                 </li>
               ))}

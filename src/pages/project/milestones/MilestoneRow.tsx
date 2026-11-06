@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteMilestone, mergeMilestones, updateMilestone, type Milestone, type MilestonePatch, type MilestoneStatus } from '../../../api/milestones'
 import { invalidateProject } from '../../../api/invalidate'
 import type { ProjectStatus } from '../../../api/projects'
+import type { PaymentRequest } from '../../../api/payments'
 import { describeReview, type Review } from '../../../api/reviews'
 import { toUserMessage } from '../../../lib/errors'
 import { Button } from '../../../ui/Button'
@@ -11,6 +12,7 @@ import { Field } from '../../../ui/Field'
 import { useToast } from '../../../ui/Toast'
 import { milestoneChip } from '../milestoneStatus'
 import { amountValid, diffDraft, editedFields, toDraft, touchesPlan, type Draft } from './milestoneDraft'
+import { MilestonePayments } from './MilestonePayments'
 import { ReasonField } from './ReasonField'
 import { SplitDialog } from './SplitDialog'
 import { TaskList } from './TaskList'
@@ -18,10 +20,10 @@ import { TaskList } from './TaskList'
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
 const STATUSES = Object.keys(milestoneChip) as MilestoneStatus[]
 
-type Props = { milestone: Milestone; next?: Milestone; review?: Review; projectStatus: ProjectStatus; currency: string }
+type Props = { milestone: Milestone; next?: Milestone; review?: Review; payments?: PaymentRequest[]; projectStatus: ProjectStatus; currency: string }
 
 /** One editable milestone. Remount (via key) when the saved data changes so the draft resets. */
-export function MilestoneRow({ milestone, next, review, projectStatus, currency }: Props) {
+export function MilestoneRow({ milestone, next, review, payments = [], projectStatus, currency }: Props) {
   const toast = useToast()
   const queryClient = useQueryClient()
   const saved = toDraft(milestone)
@@ -149,6 +151,7 @@ export function MilestoneRow({ milestone, next, review, projectStatus, currency 
       </label>
 
       <TaskList milestone={milestone} canEdit />
+      <MilestonePayments requests={payments} currency={currency} />
 
       {showReason && <ReasonField value={reason} onChange={setReason} />}
 

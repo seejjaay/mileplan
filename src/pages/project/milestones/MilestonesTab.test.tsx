@@ -7,10 +7,12 @@ import { AuthContext } from '../../../auth/AuthProvider'
 import { ToastProvider } from '../../../ui/Toast'
 import { addMilestone, deleteMilestone, listMilestones, mergeMilestones, updateMilestone, type Milestone } from '../../../api/milestones'
 import { listReviews, type Review } from '../../../api/reviews'
+import { listPaymentRequests } from '../../../api/payments'
 import type { ProjectSummary } from '../../../api/projects'
 import { ChangeMarkersContext } from '../changeMarkers'
 import MilestonesTab from './MilestonesTab'
 
+vi.mock('../../../api/payments', async (orig) => ({ ...(await orig<typeof import('../../../api/payments')>()), listPaymentRequests: vi.fn() }))
 vi.mock('../../../api/reviews', async (orig) => ({ ...(await orig<typeof import('../../../api/reviews')>()), listReviews: vi.fn(), submitReview: vi.fn() }))
 vi.mock('../../../api/milestones', async (orig) => ({
   ...(await orig<typeof import('../../../api/milestones')>()),
@@ -40,6 +42,10 @@ const project = (status: ProjectSummary['status']): ProjectSummary => ({
   created_at: '2026-11-01T00:00:00Z',
   percent: 0,
   nextDue: null,
+  scheduled: 0,
+  paid: 0,
+  outstanding: 0,
+  overdue: 0,
 })
 
 const m1: Milestone = {
@@ -83,6 +89,7 @@ function renderTab(status: ProjectSummary['status'] = 'active', role: 'admin' | 
 }
 
 beforeEach(() => {
+  vi.mocked(listPaymentRequests).mockResolvedValue([])
   vi.mocked(listReviews).mockResolvedValue([])
   vi.mocked(listMilestones).mockResolvedValue([m1])
   vi.mocked(updateMilestone).mockResolvedValue()
@@ -235,5 +242,36 @@ describe('MilestonesTab (client)', () => {
     expect(screen.getAllByText('Updated')).toHaveLength(1)
     const build = screen.getByText('Build').closest('li')!
     expect(within(build).getByText('Updated')).toBeInTheDocument()
+  })
+})
+
+describe('MilestonesTab payments', () => {
+  const deposit = { id: 'r1', project_id: 'p1', milestone_id: 'm1', title: '50% deposit', amount: 1000, due_date: '2999-01-01', created_at: '2026-11-01T00:00:00Z', payments: [] }
+  const balance = { ...deposit, id: 'r2', title: 'Balance', amount: 2000, due_date: '2000-01-01' }
+  const elsewhere = { ...deposit, id: 'r3', title: 'Other milestone fee', milestone_id: 'm9' }
+
+  beforeEach(() => {
+    vi.mocked(listPaymentRequests).mockResolvedValue([deposit, balance, elsewhere] as never)
+  })
+
+  it('milestone lists its scheduled payments with state words (client)', async () => {
+    renderTab('active', 'client')
+    const list = await screen.findByRole('list', { name: 'Scheduled payments' })
+    expect(within(list).getByText('50% deposit · ₱1,000.00 · Due')).toBeInTheDocument()
+    expect(within(list).getByText('Balance · ₱2,000.00 · Overdue')).toBeInTheDocument()
+    expect(screen.queryByText(/Other milestone fee/)).not.toBeInTheDocument()
+  })
+
+  it('milestone lists its scheduled payments with state words (admin)', async () => {
+    renderTab('active', 'admin')
+    const list = await screen.findByRole('list', { name: 'Scheduled payments' })
+    expect(within(list).getByText('50% deposit · ₱1,000.00 · Due')).toBeInTheDocument()
+  })
+
+  it('shows no payments list for a milestone with none', async () => {
+    vi.mocked(listPaymentRequests).mockResolvedValue([elsewhere] as never)
+    renderTab('active', 'client')
+    expect(await screen.findByText('Discovery')).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Scheduled payments' })).not.toBeInTheDocument()
   })
 })

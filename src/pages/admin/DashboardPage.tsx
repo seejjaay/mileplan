@@ -7,6 +7,7 @@ import { useTitle } from '../../lib/useTitle'
 import { AsyncView } from '../../ui/AsyncView'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
+import { OutstandingLine } from '../project/payments/OutstandingLine'
 import { projectChip } from '../project/projectStatus'
 
 const FILTERS: { value: ProjectStatus | 'all'; label: string }[] = [
@@ -66,6 +67,7 @@ export default function DashboardPage() {
                     {p.percent}% complete
                     {p.nextDue ? ` · Next: ${p.nextDue.title}, ${formatDate(p.nextDue.due_date)}` : ''}
                   </span>
+                  <OutstandingLine project={p} />
                 </Link>
               </li>
             ))}

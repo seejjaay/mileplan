@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listMilestones, totalAmount } from '../../api/milestones'
+import { listPaymentRequests } from '../../api/payments'
 import { listPlanChanges } from '../../api/planChanges'
 import { qk } from '../../api/keys'
 import type { ProjectSummary } from '../../api/projects'
 import { useAuth } from '../../auth/AuthProvider'
-import { formatMoney } from '../../lib/format'
+import { formatDate, formatMoney } from '../../lib/format'
 import { describeActivity } from '../../lib/formatChange'
+import { paymentTotals, requestState, todayISO } from '../../lib/paymentState'
 import { AsyncView } from '../../ui/AsyncView'
 import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
@@ -22,9 +24,14 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
   const [activating, setActivating] = useState(false)
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const planChanges = useQuery({ queryKey: qk.planChanges(project.id), queryFn: () => listPlanChanges(project.id), enabled: isAdmin })
+  const payments = useQuery({ queryKey: qk.payments(project.id), queryFn: () => listPaymentRequests(project.id) })
   const names = useEntityNames(project.id)
   const { tick } = useChangeMarkers()
   const waiting = (planChanges.data ?? []).filter((c) => c.acks.length === 0)
+  const today = todayISO()
+  const totals = payments.data ? paymentTotals(payments.data, today) : null
+  // The schedule arrives ordered by due date, so the first request that is not fully paid is the next one.
+  const next = payments.data?.map((r) => ({ r, s: requestState(r, today) })).find((x) => x.s.state !== 'paid')
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,7 +54,20 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
           <span className="text-sm text-[var(--muted)]">Contract value</span>
           <span className="text-xl font-semibold">{query.data ? formatMoney(totalAmount(query.data), project.currency) : '—'}</span>
         </div>
+        <div className="flex flex-col gap-1 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
+          <span className="text-sm text-[var(--muted)]">Paid</span>
+          <span className="text-xl font-semibold">{totals ? formatMoney(totals.paid, project.currency) : '—'}</span>
+        </div>
+        <div className="flex flex-col gap-1 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
+          <span className="text-sm text-[var(--muted)]">Outstanding</span>
+          <span className="text-xl font-semibold">{totals ? formatMoney(totals.outstanding, project.currency) : '—'}</span>
+          {totals && totals.overdue > 0 && <span className="text-sm font-medium">{`${totals.overdue} overdue`}</span>}
+        </div>
       </section>
+
+      {next && (
+        <p className="text-sm">{`Next payment: ${next.r.title} · ${formatMoney(next.s.remaining, project.currency)} · ${next.s.state === 'overdue' ? 'Overdue' : `due ${formatDate(next.r.due_date)}`}`}</p>
+      )}
 
       {isAdmin && waiting.length > 0 && (
         <section aria-label="Pending acknowledgements" className="flex flex-col gap-2 rounded-md border border-[var(--warn)] bg-[var(--surface)] p-4">

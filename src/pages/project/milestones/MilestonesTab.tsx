@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { listMilestones, reorderMilestones, type Milestone } from '../../../api/milestones'
+import { listPaymentRequests, type PaymentRequest } from '../../../api/payments'
 import { describeReview, latestReview, listReviews, type Review } from '../../../api/reviews'
 import { qk } from '../../../api/keys'
 import type { ProjectSummary } from '../../../api/projects'
@@ -12,13 +13,14 @@ import { StatusChip } from '../../../ui/StatusChip'
 import { holdChip, milestoneChip } from '../milestoneStatus'
 import { AddMilestoneDialog } from './AddMilestoneDialog'
 import { useChangeMarkers } from '../changeMarkers'
+import { MilestonePayments } from './MilestonePayments'
 import { MilestoneRow } from './MilestoneRow'
 import { ReviewActions } from './ReviewActions'
 import { SortableList } from './SortableList'
 import { TaskList } from './TaskList'
 import { useReorder } from './useReorder'
 
-function ReadOnlyMilestone({ milestone, currency, review }: { milestone: Milestone; currency: string; review?: Review }) {
+function ReadOnlyMilestone({ milestone, currency, review, payments }: { milestone: Milestone; currency: string; review?: Review; payments: PaymentRequest[] }) {
   const changed = useChangeMarkers().milestones.has(milestone.id)
   return (
     <li className="flex flex-col gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -43,6 +45,7 @@ function ReadOnlyMilestone({ milestone, currency, review }: { milestone: Milesto
         </ul>
       )}
       <TaskList milestone={milestone} canEdit={false} />
+      <MilestonePayments requests={payments} currency={currency} />
       {review && <p className="text-sm text-[var(--muted)]">{describeReview(review)}</p>}
       <ReviewActions milestone={milestone} />
     </li>
@@ -56,6 +59,8 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const reviews = useQuery({ queryKey: qk.reviews(project.id), queryFn: () => listReviews(project.id) })
   const reviewOf = (milestoneId: string) => latestReview(reviews.data ?? [], milestoneId)
+  const payments = useQuery({ queryKey: qk.payments(project.id), queryFn: () => listPaymentRequests(project.id) })
+  const paymentsOf = (milestoneId: string) => (payments.data ?? []).filter((r) => r.milestone_id === milestoneId)
   const reorder = useReorder<Milestone[]>(
     qk.milestones(project.id),
     (ids) => reorderMilestones(project.id, ids),
@@ -88,6 +93,7 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
                     <MilestoneRow
                       milestone={m}
                       review={reviewOf(m.id)}
+                      payments={paymentsOf(m.id)}
                       next={milestones[milestones.findIndex((x) => x.id === m.id) + 1]}
                       projectStatus={project.status}
                       currency={project.currency}
@@ -99,7 +105,7 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
           ) : (
             <ul className="flex flex-col gap-3">
               {milestones.map((m) => (
-                <ReadOnlyMilestone key={m.id} milestone={m} currency={project.currency} review={reviewOf(m.id)} />
+                <ReadOnlyMilestone key={m.id} milestone={m} currency={project.currency} review={reviewOf(m.id)} payments={paymentsOf(m.id)} />
               ))}
             </ul>
           )

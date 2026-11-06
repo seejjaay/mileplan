@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
@@ -6,12 +6,14 @@ import { AuthContext } from '../../auth/AuthProvider'
 import { ToastProvider } from '../../ui/Toast'
 import { listMilestones, type Milestone } from '../../api/milestones'
 import { listPlanChanges, type PlanChange } from '../../api/planChanges'
+import { listPaymentRequests } from '../../api/payments'
 import type { ProjectSummary } from '../../api/projects'
 import { ChangeMarkersContext } from './changeMarkers'
 import OverviewTab from './OverviewTab'
 
 vi.mock('../../api/milestones', async (orig) => ({ ...(await orig<typeof import('../../api/milestones')>()), listMilestones: vi.fn() }))
 vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn() }))
+vi.mock('../../api/payments', async (orig) => ({ ...(await orig<typeof import('../../api/payments')>()), listPaymentRequests: vi.fn() }))
 vi.mock('../../api/clients', () => ({ createClient: vi.fn() }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), activateProject: vi.fn() }))
 
@@ -28,6 +30,10 @@ const project: ProjectSummary = {
   created_at: '2026-11-01T00:00:00Z',
   percent: 0,
   nextDue: null,
+  scheduled: 0,
+  paid: 0,
+  outstanding: 0,
+  overdue: 0,
 }
 
 const ms = (over: Partial<Milestone>): Milestone => ({
@@ -88,6 +94,7 @@ const pending = (id: string, acks: PlanChange['acks'] = []): PlanChange => ({
 
 beforeEach(() => {
   vi.mocked(listPlanChanges).mockResolvedValue([])
+  vi.mocked(listPaymentRequests).mockResolvedValue([])
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -168,5 +175,49 @@ describe('OverviewTab', () => {
     renderTab({ ...project, status: 'active' }, 'client', ['b'])
     await screen.findByText('Build')
     expect(screen.getAllByText('Updated')).toHaveLength(1)
+  })
+})
+
+describe('OverviewTab payments', () => {
+  const req = (over: object) => ({
+    id: 'r1',
+    project_id: 'p1',
+    milestone_id: null,
+    title: '50% deposit',
+    amount: 1000,
+    due_date: '2999-01-01',
+    created_at: '2026-11-01T00:00:00Z',
+    payments: [],
+    ...over,
+  })
+
+  it('overview shows paid and outstanding in PHP, and the next payment', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([ms({ id: 'a', amount: 3000 })])
+    vi.mocked(listPaymentRequests).mockResolvedValue([
+      req({ payments: [{ id: 'x', request_id: 'r1', amount: 400, status: 'confirmed' }] }),
+    ] as never)
+    renderTab(project)
+    const paid = (await screen.findByText('Paid')).closest('div')!
+    expect(await within(paid).findByText('₱400.00')).toBeInTheDocument()
+    expect(within(screen.getByText('Outstanding').closest('div')!).getByText('₱600.00')).toBeInTheDocument()
+    expect(screen.getByText('Next payment: 50% deposit · ₱600.00 · due Jan 1, 2999')).toBeInTheDocument()
+  })
+
+  it('says Overdue instead of a date when the next payment is late, and counts them', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([])
+    vi.mocked(listPaymentRequests).mockResolvedValue([req({ title: 'Balance', amount: 2000, due_date: '2000-01-01' })] as never)
+    renderTab(project)
+    expect(await screen.findByText('Next payment: Balance · ₱2,000.00 · Overdue')).toBeInTheDocument()
+    expect(screen.getByText('1 overdue')).toBeInTheDocument()
+  })
+
+  it('shows no next-payment line when everything is paid', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([])
+    vi.mocked(listPaymentRequests).mockResolvedValue([
+      req({ payments: [{ id: 'x', request_id: 'r1', amount: 1000, status: 'confirmed' }] }),
+    ] as never)
+    renderTab(project)
+    expect(await within((await screen.findByText('Outstanding')).closest('div')!).findByText('₱0.00')).toBeInTheDocument()
+    expect(screen.queryByText(/Next payment/)).not.toBeInTheDocument()
   })
 })
