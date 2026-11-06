@@ -275,3 +275,21 @@ describe('MilestonesTab payments', () => {
     expect(screen.queryByRole('list', { name: 'Scheduled payments' })).not.toBeInTheDocument()
   })
 })
+
+describe('MilestonesTab when the project is closed', () => {
+  it('shows the admin a read-only list with no editing controls', async () => {
+    renderTab('completed', 'admin')
+    expect(await screen.findByText('Discovery')).toBeInTheDocument()
+    expect(screen.getByText('Wireframes approved')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Save changes|Delete milestone|Add milestone|Split milestone|Merge with next/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Reorder/ })).not.toBeInTheDocument()
+  })
+
+  it('hides Approve and Request changes from the client', async () => {
+    vi.mocked(listMilestones).mockResolvedValue([{ ...m1, status: 'in_review' }])
+    renderTab('completed', 'client')
+    expect(await screen.findByText('Discovery')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Approve|Request changes/ })).not.toBeInTheDocument()
+  })
+})

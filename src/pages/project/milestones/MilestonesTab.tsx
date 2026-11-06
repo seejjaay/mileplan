@@ -13,6 +13,7 @@ import { StatusChip } from '../../../ui/StatusChip'
 import { holdChip, milestoneChip } from '../milestoneStatus'
 import { AddMilestoneDialog } from './AddMilestoneDialog'
 import { useChangeMarkers } from '../changeMarkers'
+import { useProjectOpen } from '../useProjectOpen'
 import { MilestonePayments } from './MilestonePayments'
 import { MilestoneRow } from './MilestoneRow'
 import { ReviewActions } from './ReviewActions'
@@ -20,7 +21,19 @@ import { SortableList } from './SortableList'
 import { TaskList } from './TaskList'
 import { useReorder } from './useReorder'
 
-function ReadOnlyMilestone({ milestone, currency, review, payments }: { milestone: Milestone; currency: string; review?: Review; payments: PaymentRequest[] }) {
+function ReadOnlyMilestone({
+  milestone,
+  currency,
+  review,
+  payments,
+  canReview,
+}: {
+  milestone: Milestone
+  currency: string
+  review?: Review
+  payments: PaymentRequest[]
+  canReview: boolean
+}) {
   const changed = useChangeMarkers().milestones.has(milestone.id)
   return (
     <li className="flex flex-col gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -47,7 +60,7 @@ function ReadOnlyMilestone({ milestone, currency, review, payments }: { mileston
       <TaskList milestone={milestone} canEdit={false} />
       <MilestonePayments requests={payments} currency={currency} />
       {review && <p className="text-sm text-[var(--muted)]">{describeReview(review)}</p>}
-      <ReviewActions milestone={milestone} />
+      {canReview && <ReviewActions milestone={milestone} />}
     </li>
   )
 }
@@ -55,6 +68,8 @@ function ReadOnlyMilestone({ milestone, currency, review, payments }: { mileston
 export default function MilestonesTab({ project }: { project: ProjectSummary }) {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
+  const open = useProjectOpen(project)
+  const canEdit = isAdmin && open // a closed project is read-only for the admin too
   const [adding, setAdding] = useState(false)
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const reviews = useQuery({ queryKey: qk.reviews(project.id), queryFn: () => listReviews(project.id) })
@@ -71,7 +86,7 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Milestones</h2>
-        {isAdmin && <Button onClick={() => setAdding(true)}>Add milestone</Button>}
+        {canEdit && <Button onClick={() => setAdding(true)}>Add milestone</Button>}
       </div>
 
       <AsyncView
@@ -80,7 +95,7 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
         empty={<p className="text-[var(--muted)]">No milestones yet. Add the first one.</p>}
       >
         {(milestones) =>
-          isAdmin ? (
+          canEdit ? (
             <SortableList
               items={milestones}
               label="Milestones"
@@ -105,14 +120,14 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
           ) : (
             <ul className="flex flex-col gap-3">
               {milestones.map((m) => (
-                <ReadOnlyMilestone key={m.id} milestone={m} currency={project.currency} review={reviewOf(m.id)} payments={paymentsOf(m.id)} />
+                <ReadOnlyMilestone key={m.id} milestone={m} currency={project.currency} review={reviewOf(m.id)} payments={paymentsOf(m.id)} canReview={open} />
               ))}
             </ul>
           )
         }
       </AsyncView>
 
-      {isAdmin && <AddMilestoneDialog projectId={project.id} projectStatus={project.status} open={adding} onClose={() => setAdding(false)} />}
+      {canEdit && <AddMilestoneDialog projectId={project.id} projectStatus={project.status} open={adding} onClose={() => setAdding(false)} />}
     </div>
   )
 }

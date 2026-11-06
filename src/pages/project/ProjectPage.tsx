@@ -11,6 +11,7 @@ import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
 import { ChangeMarkersContext } from './changeMarkers'
+import { ClosedBanner } from './ClosedBanner'
 import { PlanChangeBanner } from './PlanChangeBanner'
 import { projectChip } from './projectStatus'
 import { resolveTab, TABS, type TabKey } from './tabs'
@@ -74,6 +75,7 @@ export default function ProjectPage() {
         </div>
       </header>
 
+      <ClosedBanner project={project} />
       <PlanChangeBanner project={project} />
 
       <nav aria-label="Project sections" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">

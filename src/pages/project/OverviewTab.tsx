@@ -14,6 +14,7 @@ import { AsyncView } from '../../ui/AsyncView'
 import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { ActivateDialog } from './ActivateDialog'
+import { CloseProjectDialog, ReopenProjectDialog } from './CloseProjectDialog'
 import { RouteLine } from './RouteLine'
 import { useChangeMarkers } from './changeMarkers'
 import { useEntityNames } from './useEntityNames'
@@ -22,6 +23,7 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const [activating, setActivating] = useState(false)
+  const [closing, setClosing] = useState<'close' | 'reopen' | null>(null)
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const planChanges = useQuery({ queryKey: qk.planChanges(project.id), queryFn: () => listPlanChanges(project.id), enabled: isAdmin })
   const payments = useQuery({ queryKey: qk.payments(project.id), queryFn: () => listPaymentRequests(project.id) })
@@ -41,6 +43,21 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
         <div className="flex flex-col items-start gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
           <p className="text-sm text-[var(--muted)]">The client can't see this project yet. Add them and activate it when the plan is ready.</p>
           <Button onClick={() => setActivating(true)}>Add client & activate</Button>
+        </div>
+      )}
+
+      {isAdmin && project.status === 'active' && (
+        <div>
+          <Button variant="secondary" onClick={() => setClosing('close')}>
+            Close project
+          </Button>
+        </div>
+      )}
+      {isAdmin && (project.status === 'completed' || project.status === 'terminated') && (
+        <div>
+          <Button variant="secondary" onClick={() => setClosing('reopen')}>
+            Reopen project
+          </Button>
         </div>
       )}
 
@@ -102,6 +119,8 @@ export default function OverviewTab({ project }: { project: ProjectSummary }) {
       </section>
 
       {isAdmin && <ActivateDialog projectId={project.id} open={activating} onClose={() => setActivating(false)} />}
+      {isAdmin && <CloseProjectDialog open={closing === 'close'} onClose={() => setClosing(null)} project={project} />}
+      {isAdmin && <ReopenProjectDialog open={closing === 'reopen'} onClose={() => setClosing(null)} project={project} />}
     </div>
   )
 }

@@ -89,3 +89,14 @@ export async function activateProject(projectId: string): Promise<void> {
   const { error } = await supabase.rpc('activate_project', { p_project_id: projectId })
   if (error) throw error
 }
+
+/** Active -> completed or terminated. The database then refuses every tracker write until the project is reopened. */
+export async function closeProject(projectId: string, outcome: 'completed' | 'terminated', reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('close_project', { p_project_id: projectId, p_outcome: outcome, p_reason: reason ?? null })
+  if (error) throw error
+}
+
+export async function reopenProject(projectId: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc('reopen_project', { p_project_id: projectId, p_reason: reason ?? null })
+  if (error) throw error
+}

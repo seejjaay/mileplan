@@ -15,6 +15,7 @@ import { Button } from '../../ui/Button'
 import { Field } from '../../ui/Field'
 import { Markdown } from '../../ui/Markdown'
 import { useToast } from '../../ui/Toast'
+import { useProjectOpen } from './useProjectOpen'
 
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
 
@@ -144,11 +145,12 @@ function UpdateItem({ update }: { update: UpdateRow }) {
 
 export default function UpdatesTab({ project }: { project: ProjectSummary }) {
   const { profile } = useAuth()
+  const open = useProjectOpen(project)
   const query = useQuery({ queryKey: qk.updates(project.id), queryFn: () => listUpdates(project.id) })
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Updates</h2>
-      {profile?.role === 'admin' && <Composer project={project} />}
+      {profile?.role === 'admin' && open && <Composer project={project} />}
       <AsyncView query={query} onRetry={() => void query.refetch()} empty={<p className="text-[var(--muted)]">No updates yet.</p>}>
         {(updates) => (
           <ul className="flex flex-col gap-3">

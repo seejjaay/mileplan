@@ -14,6 +14,7 @@ import { Button } from '../../ui/Button'
 import { Field } from '../../ui/Field'
 import { StatusChip } from '../../ui/StatusChip'
 import { useToast } from '../../ui/Toast'
+import { useProjectOpen } from './useProjectOpen'
 
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
 const kindLabel = (k: DocumentKind) => DOCUMENT_KINDS.find((x) => x.value === k)?.label ?? k
@@ -166,11 +167,12 @@ function DocumentItem({ doc }: { doc: DocumentRow }) {
 
 export default function FilesTab({ project }: { project: ProjectSummary }) {
   const { profile } = useAuth()
+  const open = useProjectOpen(project)
   const query = useQuery({ queryKey: qk.documents(project.id), queryFn: () => listDocuments(project.id) })
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Files</h2>
-      {profile?.role === 'admin' && <UploadForm project={project} documents={query.data ?? []} />}
+      {profile?.role === 'admin' && open && <UploadForm project={project} documents={query.data ?? []} />}
       <AsyncView query={query} onRetry={() => void query.refetch()} empty={<p className="text-[var(--muted)]">No documents yet.</p>}>
         {(documents) => (
           <ul className="flex flex-col gap-3">

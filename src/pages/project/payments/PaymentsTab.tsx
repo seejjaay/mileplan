@@ -15,6 +15,7 @@ import { AsyncView } from '../../../ui/AsyncView'
 import { Button } from '../../../ui/Button'
 import { StatusChip } from '../../../ui/StatusChip'
 import { useToast } from '../../../ui/Toast'
+import { useProjectOpen } from '../useProjectOpen'
 import { paymentChip, requestChip } from './paymentChip'
 import { ProofDialog } from './ProofDialog'
 import { RecordPaymentDialog } from './RecordPaymentDialog'
@@ -44,12 +45,12 @@ function ViewProof({ payment }: { payment: Payment }) {
 function PaymentLine({
   payment,
   currency,
-  isAdmin,
+  canReview,
   onReview,
 }: {
   payment: Payment
   currency: string
-  isAdmin: boolean
+  canReview: boolean
   onReview: (payment: Payment, mode: 'confirmed' | 'rejected') => void
 }) {
   const chip = paymentChip[payment.status]
@@ -68,7 +69,7 @@ function PaymentLine({
       {payment.status === 'rejected' && payment.review_note && <p className="text-sm">Note: {payment.review_note}</p>}
       <div className="flex flex-wrap gap-2">
         {payment.proof_path && <ViewProof payment={payment} />}
-        {isAdmin && payment.status === 'pending' && (
+        {canReview && payment.status === 'pending' && (
           <>
             <Button onClick={() => onReview(payment, 'confirmed')}>Confirm payment</Button>
             <Button variant="danger" onClick={() => onReview(payment, 'rejected')}>
@@ -86,12 +87,14 @@ function RequestItem({
   milestoneTitle,
   currency,
   isAdmin,
+  open,
   onOpen,
 }: {
   request: PaymentRequest
   milestoneTitle: string | null
   currency: string
   isAdmin: boolean
+  open: boolean
   onOpen: (dialog: Dialogs) => void
 }) {
   const { state, paid, remaining } = requestState(request, todayISO())
@@ -117,20 +120,20 @@ function RequestItem({
               key={p.id}
               payment={p}
               currency={currency}
-              isAdmin={isAdmin}
+              canReview={isAdmin && open}
               onReview={(payment, mode) => onOpen({ kind: 'review', payment, mode })}
             />
           ))}
         </ul>
       )}
       <div className="flex flex-wrap gap-2">
-        {!isAdmin && state !== 'paid' && <Button onClick={() => onOpen({ kind: 'proof', request })}>Upload proof</Button>}
-        {isAdmin && state !== 'paid' && (
+        {open && !isAdmin && state !== 'paid' && <Button onClick={() => onOpen({ kind: 'proof', request })}>Upload proof</Button>}
+        {open && isAdmin && state !== 'paid' && (
           <Button variant="secondary" onClick={() => onOpen({ kind: 'record', request })}>
             Record payment
           </Button>
         )}
-        {isAdmin && (
+        {open && isAdmin && (
           <Button variant="secondary" aria-label={`Edit ${request.title}`} onClick={() => onOpen({ kind: 'edit', request })}>
             Edit
           </Button>
@@ -143,6 +146,7 @@ function RequestItem({
 export default function PaymentsTab({ project }: { project: ProjectSummary }) {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
+  const open = useProjectOpen(project)
   const [dialog, setDialog] = useState<Dialogs | null>(null)
   // Kept mounted after it closes, so ProofDialog's duplicate-submission memory outlives a close and reopen.
   const [proofFor, setProofFor] = useState<PaymentRequest | null>(null)
@@ -151,7 +155,7 @@ export default function PaymentsTab({ project }: { project: ProjectSummary }) {
   const milestoneList = (milestones.data ?? []).map((m) => ({ id: m.id, title: m.title }))
   const titleOf = (id: string | null) => milestoneList.find((m) => m.id === id)?.title ?? null
   const close = () => setDialog(null)
-  const open = (next: Dialogs) => {
+  const openDialog = (next: Dialogs) => {
     if (next.kind === 'proof') setProofFor(next.request)
     setDialog(next)
   }
@@ -160,7 +164,7 @@ export default function PaymentsTab({ project }: { project: ProjectSummary }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Payments</h2>
-        {isAdmin && <Button onClick={() => setDialog({ kind: 'add' })}>Add scheduled payment</Button>}
+        {isAdmin && open && <Button onClick={() => setDialog({ kind: 'add' })}>Add scheduled payment</Button>}
       </div>
       <AsyncView query={query} onRetry={() => void query.refetch()} empty={<p className="text-[var(--muted)]">No payments scheduled yet.</p>}>
         {(requests) => (
@@ -172,7 +176,8 @@ export default function PaymentsTab({ project }: { project: ProjectSummary }) {
                 milestoneTitle={titleOf(r.milestone_id)}
                 currency={project.currency}
                 isAdmin={isAdmin}
-                onOpen={open}
+                open={open}
+                onOpen={openDialog}
               />
             ))}
           </ul>

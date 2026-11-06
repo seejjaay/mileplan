@@ -126,3 +126,22 @@ describe('PaymentsTab', () => {
     expect(signedUrl).toHaveBeenCalledWith('payment-proofs', 'p1/11111111-1111-1111-1111-111111111111-proof.png', 'proof.png')
   })
 })
+
+describe('PaymentsTab when the project is closed', () => {
+  const closed = () => ({ ...project('completed'), closed_at: '2026-11-10T08:00:00Z' })
+
+  it('hides every write control from the admin and keeps View proof', async () => {
+    vi.mocked(listPaymentRequests).mockResolvedValue([request({ payments: [payment()] })])
+    renderWithProviders(<PaymentsTab project={closed()} />, 'admin')
+    expect(await screen.findByRole('button', { name: 'View proof' })).toBeInTheDocument()
+    for (const name of ['Add scheduled payment', 'Record payment', 'Confirm payment', 'Reject proof', /^Edit/]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    }
+  })
+
+  it('hides Upload proof from the client', async () => {
+    renderWithProviders(<PaymentsTab project={closed()} />, 'client')
+    expect(await screen.findByText('50% deposit')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Upload proof' })).not.toBeInTheDocument()
+  })
+})

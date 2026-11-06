@@ -52,7 +52,7 @@ const doc = (over: Partial<DocumentRow>): DocumentRow => ({
   ...over,
 })
 
-function renderTab(role: 'admin' | 'client' = 'admin') {
+function renderTab(role: 'admin' | 'client' = 'admin', p: ProjectSummary = project) {
   const user = userEvent.setup({ applyAccept: false })
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -65,7 +65,7 @@ function renderTab(role: 'admin' | 'client' = 'admin') {
             signOut: async () => {},
           }}
         >
-          <FilesTab project={project} />
+          <FilesTab project={p} />
         </AuthContext.Provider>
       </ToastProvider>
     </QueryClientProvider>,
@@ -158,6 +158,14 @@ describe('FilesTab', () => {
     expect(await screen.findByText('Service agreement')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Download Service agreement' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Signed document file')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Upload document' })).not.toBeInTheDocument()
+  })
+})
+
+describe('FilesTab when the project is closed', () => {
+  it('has no upload form, even for the admin, but documents can still be downloaded', async () => {
+    renderTab('admin', { ...project, status: 'completed' as const, closed_at: '2026-11-10T08:00:00Z' })
+    expect(await screen.findByRole('button', { name: 'Download Service agreement' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Upload document' })).not.toBeInTheDocument()
   })
 })

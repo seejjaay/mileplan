@@ -49,7 +49,7 @@ const update: UpdateRow = {
 
 const milestone = { id: 'm1', title: 'Discovery' } as Milestone
 
-function renderTab(role: 'admin' | 'client' = 'admin') {
+function renderTab(role: 'admin' | 'client' = 'admin', p: ProjectSummary = project) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
@@ -61,7 +61,7 @@ function renderTab(role: 'admin' | 'client' = 'admin') {
             signOut: async () => {},
           }}
         >
-          <UpdatesTab project={project} />
+          <UpdatesTab project={p} />
         </AuthContext.Provider>
       </ToastProvider>
     </QueryClientProvider>,
@@ -146,6 +146,14 @@ describe('UpdatesTab', () => {
     renderTab('client')
     expect(await screen.findByText('done')).toBeInTheDocument()
     expect(screen.queryByLabelText('Write an update (Markdown)')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Post update' })).not.toBeInTheDocument()
+  })
+})
+
+describe('UpdatesTab when the project is closed', () => {
+  it('has no composer, even for the admin, and still lists updates', async () => {
+    renderTab('admin', { ...project, status: 'completed' as const, closed_at: '2026-11-10T08:00:00Z' })
+    expect(await screen.findByRole('heading', { name: 'Updates' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Post update' })).not.toBeInTheDocument()
   })
 })

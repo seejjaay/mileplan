@@ -104,3 +104,18 @@ describe('ProjectPage', () => {
     expect(screen.getByRole('link', { name: 'Files' })).toBeInTheDocument()
   })
 })
+
+describe('ProjectPage when the project is closed', () => {
+  it.each(['/projects/p1', '/projects/p1/files'])('shows the closed banner on %s', async (path) => {
+    vi.mocked(getProject).mockResolvedValue({ ...project, status: 'terminated', closed_at: '2026-11-12T08:00:00Z' })
+    renderAt(path)
+    expect(await screen.findByText('This project was terminated on Nov 12, 2026 and is read-only.')).toBeInTheDocument()
+  })
+
+  it('shows no banner on an active project', async () => {
+    vi.mocked(getProject).mockResolvedValue(project)
+    renderAt('/projects/p1')
+    await screen.findByRole('heading', { name: 'Website rebuild', level: 1 })
+    expect(screen.queryByText(/is read-only/)).not.toBeInTheDocument()
+  })
+})

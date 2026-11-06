@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
@@ -219,5 +220,41 @@ describe('OverviewTab payments', () => {
     renderTab(project)
     expect(await within((await screen.findByText('Outstanding')).closest('div')!).findByText('₱0.00')).toBeInTheDocument()
     expect(screen.queryByText(/Next payment/)).not.toBeInTheDocument()
+  })
+})
+
+describe('OverviewTab close and reopen', () => {
+  const active = { ...project, status: 'active' as const }
+  const closed = { ...project, status: 'completed' as const, closed_at: '2026-11-10T08:00:00Z' }
+
+  beforeEach(() => {
+    vi.mocked(listMilestones).mockResolvedValue([])
+  })
+
+  it('offers Close project to the admin of an active project, and opens the dialog', async () => {
+    renderTab(active)
+    await userEvent.click(await screen.findByRole('button', { name: 'Close project' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['setup', 'admin'],
+    ['active', 'client'],
+  ] as const)('does not offer Close project on a %s project to the %s', async (status, role) => {
+    renderTab({ ...project, status }, role)
+    expect(await screen.findByText('Contract value')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close project' })).not.toBeInTheDocument()
+  })
+
+  it('offers Reopen project, and not Close project, to the admin of a closed project', async () => {
+    renderTab(closed)
+    expect(await screen.findByRole('button', { name: 'Reopen project' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close project' })).not.toBeInTheDocument()
+  })
+
+  it('does not offer Reopen project to the client', async () => {
+    renderTab(closed, 'client')
+    expect(await screen.findByText('Contract value')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reopen project' })).not.toBeInTheDocument()
   })
 })
