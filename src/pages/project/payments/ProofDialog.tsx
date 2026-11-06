@@ -4,13 +4,14 @@ import { submitProof, type PaymentRequest } from '../../../api/payments'
 import { qk } from '../../../api/keys'
 import type { ProjectSummary } from '../../../api/projects'
 import { useAuth } from '../../../auth/AuthProvider'
-import { toUserMessage } from '../../../lib/errors'
+import { PROJECT_CLOSED, toUserMessage } from '../../../lib/errors'
 import { requestState, todayISO } from '../../../lib/paymentState'
 import { ACCEPT_ATTR, validateUpload } from '../../../lib/validateUpload'
 import { Button } from '../../../ui/Button'
 import { Dialog } from '../../../ui/Dialog'
 import { Field } from '../../../ui/Field'
 import { useToast } from '../../../ui/Toast'
+import { useProjectOpen } from '../useProjectOpen'
 
 const inputClass = 'min-h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3'
 /** An identical submission (same request, amount and file name) inside this window is a double-click or a retry loop. */
@@ -25,6 +26,7 @@ function ProofForm({ onClose, project, request, guard }: Omit<Props, 'open'> & {
   const { profile } = useAuth()
   const toast = useToast()
   const queryClient = useQueryClient()
+  const projectOpen = useProjectOpen(project)
   const [amount, setAmount] = useState(() => String(requestState(request, todayISO()).remaining))
   const [paidOn, setPaidOn] = useState(todayISO)
   const [method, setMethod] = useState('')
@@ -56,7 +58,8 @@ function ProofForm({ onClose, project, request, guard }: Omit<Props, 'open'> & {
     },
     onError: (err) => {
       guard.forget() // a failed attempt may be retried straight away
-      toast.error(toUserMessage(err))
+      // A stale tab is refused by the storage policy first, as a generic 403. If the live project is closed, say why.
+      toast.error(projectOpen ? toUserMessage(err) : PROJECT_CLOSED)
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: qk.payments(project.id) })

@@ -72,4 +72,22 @@ describe('ProofDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Upload proof' }))
     expect(await screen.findByText('This project is closed. Reopen it to make changes.')).toBeInTheDocument()
   })
+
+  it('blames the closed project when a stale tab is refused by storage', async () => {
+    vi.mocked(submitProof).mockRejectedValue({ status: 403, message: 'new row violates row-level security policy' })
+    const closed = { ...project('completed'), closed_at: '2026-11-10T08:00:00Z' }
+    const { user } = renderWithProviders(<ProofDialog open onClose={() => {}} project={closed} request={request()} />, 'client')
+    await user.upload(await screen.findByLabelText('Proof file'), png)
+    await user.click(screen.getByRole('button', { name: 'Upload proof' }))
+    expect(await screen.findByText('This project is closed. Reopen it to make changes.')).toBeInTheDocument()
+    expect(screen.queryByText("You don't have access to this")).not.toBeInTheDocument()
+  })
+
+  it('keeps the usual message when the project is open', async () => {
+    vi.mocked(submitProof).mockRejectedValue({ status: 403, message: 'new row violates row-level security policy' })
+    const { user } = open()
+    await user.upload(await screen.findByLabelText('Proof file'), png)
+    await user.click(screen.getByRole('button', { name: 'Upload proof' }))
+    expect(await screen.findByText("You don't have access to this")).toBeInTheDocument()
+  })
 })
