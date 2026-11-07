@@ -1,0 +1,12 @@
+{
+  "project": {
+    "title": "Fixture"
+  },
+  "milestones": [
+    {
+      "key": "m1",
+      "title": "One",
+      "due_date": "2026-12-01"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "project": {
+    "title": "Full",
+    "summary": "A summary",
+    "currency": "USD",
+    "start_date": "2026-11-10",
+    "end_date": "2027-01-31"
+  },
+  "milestones": [
+    {
+      "key": "m1",
+      "title": "Discovery",
+      "description": "Find out",
+      "acceptance_criteria": [
+        "Approved"
+      ],
+      "due_date": "2026-12-01",
+      "amount": 1000.5,
+      "tasks": [
+        "Kickoff",
+        "Sitemap"
+      ]
+    },
+    {
+      "key": "m2",
+      "title": "Build",
+      "due_date": "2026-12-01",
+      "amount": 0,
+      "tasks": []
+    }
+  ],
+  "payments": [
+    {
+      "key": "p1",
+      "title": "Deposit",
+      "amount": 500,
+      "due_date": "2026-11-30",
+      "milestone": "m1"
+    },
+    {
+      "key": "p2",
+      "title": "Final",
+      "amount": 0.01,
+      "due_date": "2027-01-31"
+    }
+  ]
+}

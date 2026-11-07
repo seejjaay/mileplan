@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "project": {
+    "title": "Fixture"
+  },
+  "milestones": [
+    {
+      "key": "m1",
+      "title": "One",
+      "due_date": "2026-12-01"
+    },
+    {
+      "key": "m2",
+      "title": "Two",
+      "due_date": "2026-11-01"
+    }
+  ]
+}

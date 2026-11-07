@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "project": {
+    "title": "x",
+    "start_date": "2026-12-10",
+    "end_date": "2026-12-01"
+  },
+  "milestones": [
+    {
+      "key": "m1",
+      "title": "One",
+      "due_date": "2026-12-01"
+    }
+  ]
+}
