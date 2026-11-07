@@ -5,13 +5,13 @@ import { qk } from '../api/keys'
 import { ReconnectingPill } from './ReconnectingPill'
 import { useProjectRealtime } from './useProjectRealtime'
 
-type Handler = { table: string; filter?: string; cb: (payload: unknown) => void }
+type Handler = { type: string; table: string; filter?: string; cb: (payload: unknown) => void }
 const handlers: Handler[] = []
 let statusCb: (status: string) => void = () => {}
 
 const channel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> } = {
-  on: vi.fn((_type: string, spec: { table: string; filter?: string }, cb: (payload: unknown) => void) => {
-    handlers.push({ table: spec.table, filter: spec.filter, cb })
+  on: vi.fn((type: string, spec: { table: string; filter?: string }, cb: (payload: unknown) => void) => {
+    handlers.push({ type, table: spec.table, filter: spec.filter, cb })
     return channel
   }),
   subscribe: vi.fn((cb: (status: string) => void) => {
@@ -28,6 +28,7 @@ const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider 
 
 const fire = (table: string, payload: unknown) => act(() => handlers.filter((h) => h.table === table).forEach((h) => h.cb(payload)))
 const status = (s: string) => act(() => statusCb(s))
+const streaming = () => act(() => handlers.filter((h) => h.type === 'system').forEach((h) => h.cb({ extension: 'postgres_changes', status: 'ok', message: 'Subscribed to PostgreSQL' })))
 const keysInvalidated = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey))
 
 beforeEach(() => {
@@ -107,6 +108,22 @@ describe('useProjectRealtime', () => {
     for (const key of [qk.milestones('p1'), qk.updates('p1'), qk.documents('p1'), qk.activity('p1'), qk.project('p1')]) {
       expect(keys).toContain(JSON.stringify(key))
     }
+  })
+
+  it('refetches again once the server is streaming after a rejoin, since changes in between are never delivered', () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    renderHook(() => useProjectRealtime('p1'), { wrapper })
+    status('SUBSCRIBED')
+    streaming()
+    expect(spy).not.toHaveBeenCalled() // first connect: nothing was missed
+    status('CHANNEL_ERROR')
+    status('SUBSCRIBED')
+    spy.mockClear()
+    streaming()
+    expect(keysInvalidated(spy)).toContain(JSON.stringify(qk.milestones('p1')))
+    spy.mockClear()
+    streaming() // once per rejoin, not on every system message
+    expect(spy).not.toHaveBeenCalled()
   })
 
   it('shows reconnecting only after a connected channel has been down for 1.5 s, and hides it on return', () => {

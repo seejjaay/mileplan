@@ -65,6 +65,7 @@ export function useProjectRealtime(projectId: string) {
     let active = true
     let hasConnected = false
     let dropped = false
+    let resyncOnStream = false
     let timer: ReturnType<typeof setTimeout> | undefined
 
     const markDown = () => {
@@ -74,7 +75,10 @@ export function useProjectRealtime(projectId: string) {
       timer ??= setTimeout(() => active && setReconnecting(true), RECONNECT_PILL_DELAY_MS)
     }
     const markUp = () => {
-      if (dropped) invalidateAll(queryClient, projectId) // anything missed while offline
+      if (dropped) {
+        invalidateAll(queryClient, projectId) // anything missed while offline
+        resyncOnStream = true
+      }
       dropped = false
       hasConnected = true
       clearTimeout(timer)
@@ -112,6 +116,13 @@ export function useProjectRealtime(projectId: string) {
     for (const [table, filter] of tables) {
       channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, onChange(table))
     }
+    // SUBSCRIBED only means the channel rejoined; the server starts streaming changes later (seconds, on a cold
+    // Realtime) and says so with this message. Changes in between are never delivered, so refetch once more.
+    channel = channel.on('system', {}, (payload: { extension?: string; status?: string }) => {
+      if (!active || payload.extension !== 'postgres_changes' || payload.status !== 'ok' || !resyncOnStream) return
+      resyncOnStream = false
+      invalidateAll(queryClient, projectId)
+    })
     channel.subscribe((status: string) => {
       if (!active) return
       if (status === 'SUBSCRIBED') markUp()
