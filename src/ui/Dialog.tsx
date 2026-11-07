@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-type Props = { open: boolean; onClose: () => void; title: string; children: ReactNode }
+type Props = { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /** Modal: focus moves in on open, Tab is trapped, Esc closes, focus returns to the opener. */
-export function Dialog({ open, onClose, title, children }: Props) {
+export function Dialog({ open, onClose, title, children, wide = false }: Props) {
   const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
@@ -59,7 +59,7 @@ export function Dialog({ open, onClose, title, children }: Props) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-xl"
+        className={`max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 shadow-xl ${wide ? 'max-w-2xl' : 'max-w-md'}`}
       >
         <h2 id={titleId} className="mb-4 text-lg font-semibold">
           {title}

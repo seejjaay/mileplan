@@ -106,8 +106,22 @@ describe('MilestonesTab (admin)', () => {
   it('shows the exact empty copy only after an empty result', async () => {
     vi.mocked(listMilestones).mockResolvedValue([])
     renderTab()
-    expect(screen.queryByText('No milestones yet. Add the first one.')).not.toBeInTheDocument()
-    expect(await screen.findByText('No milestones yet. Add the first one.')).toBeInTheDocument()
+    expect(screen.queryByText('No milestones yet. Add the first one, or import a plan.')).not.toBeInTheDocument()
+    expect(await screen.findByText('No milestones yet. Add the first one, or import a plan.')).toBeInTheDocument()
+  })
+
+  it('offers Import plan next to Add milestone and opens the import dialog', async () => {
+    renderTab()
+    await row()
+    expect(screen.getByRole('button', { name: 'Add milestone' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Import plan' }))
+    expect(await screen.findByRole('dialog', { name: 'Import plan' })).toBeInTheDocument()
+  })
+
+  it('has no Import plan button once the project is closed', async () => {
+    renderTab('completed')
+    await screen.findByText('Discovery')
+    expect(screen.queryByRole('button', { name: 'Import plan' })).not.toBeInTheDocument()
   })
 
   it('keeps Save disabled until the row is dirty', async () => {
@@ -222,7 +236,7 @@ describe('MilestonesTab (client)', () => {
     expect(screen.getByText('Planned')).toBeInTheDocument()
     expect(screen.getByText('Wireframes approved')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Save changes|Delete milestone|Add milestone/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Save changes|Delete milestone|Add milestone|Import plan/ })).not.toBeInTheDocument()
   })
 
   it('lets a client review a milestone that is in review, and shows the latest review', async () => {
@@ -282,7 +296,7 @@ describe('MilestonesTab when the project is closed', () => {
     expect(await screen.findByText('Discovery')).toBeInTheDocument()
     expect(screen.getByText('Wireframes approved')).toBeInTheDocument()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Save changes|Delete milestone|Add milestone|Split milestone|Merge with next/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Save changes|Delete milestone|Add milestone|Import plan|Split milestone|Merge with next/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Reorder/ })).not.toBeInTheDocument()
   })
 

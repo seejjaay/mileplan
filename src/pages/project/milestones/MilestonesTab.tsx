@@ -12,6 +12,7 @@ import { Button } from '../../../ui/Button'
 import { StatusChip } from '../../../ui/StatusChip'
 import { holdChip, milestoneChip } from '../milestoneStatus'
 import { AddMilestoneDialog } from './AddMilestoneDialog'
+import { ImportPlanDialog } from './ImportPlanDialog'
 import { useChangeMarkers } from '../changeMarkers'
 import { useProjectOpen } from '../useProjectOpen'
 import { MilestonePayments } from './MilestonePayments'
@@ -71,6 +72,7 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
   const open = useProjectOpen(project)
   const canEdit = isAdmin && open // a closed project is read-only for the admin too
   const [adding, setAdding] = useState(false)
+  const [importing, setImporting] = useState(false)
   const query = useQuery({ queryKey: qk.milestones(project.id), queryFn: () => listMilestones(project.id) })
   const reviews = useQuery({ queryKey: qk.reviews(project.id), queryFn: () => listReviews(project.id) })
   const reviewOf = (milestoneId: string) => latestReview(reviews.data ?? [], milestoneId)
@@ -86,13 +88,24 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Milestones</h2>
-        {canEdit && <Button onClick={() => setAdding(true)}>Add milestone</Button>}
+        {canEdit && (
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setImporting(true)}>
+              Import plan
+            </Button>
+            <Button onClick={() => setAdding(true)}>Add milestone</Button>
+          </div>
+        )}
       </div>
 
       <AsyncView
         query={query}
         onRetry={() => void query.refetch()}
-        empty={<p className="text-[var(--muted)]">No milestones yet. Add the first one.</p>}
+        empty={
+          <p className="text-[var(--muted)]">
+            {canEdit ? 'No milestones yet. Add the first one, or import a plan.' : 'No milestones yet. Add the first one.'}
+          </p>
+        }
       >
         {(milestones) =>
           canEdit ? (
@@ -128,6 +141,15 @@ export default function MilestonesTab({ project }: { project: ProjectSummary }) 
       </AsyncView>
 
       {canEdit && <AddMilestoneDialog projectId={project.id} projectStatus={project.status} open={adding} onClose={() => setAdding(false)} />}
+      {canEdit && importing && (
+        <ImportPlanDialog
+          projectId={project.id}
+          projectStatus={project.status}
+          currency={project.currency}
+          emptyProject={query.data?.length === 0 && payments.data?.length === 0}
+          onClose={() => setImporting(false)}
+        />
+      )}
     </div>
   )
 }
