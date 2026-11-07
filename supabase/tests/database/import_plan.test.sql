@@ -1,5 +1,5 @@
 begin;
-select plan(76);
+select plan(84);
 
 -- Fixtures (as postgres) ---------------------------------------------------------------------------------
 -- PS: an empty setup project.  PX: an active project that already has keyed rows and payments.
@@ -34,6 +34,9 @@ insert into public.milestones (id, project_id, position, title, due_date, plan_k
 insert into public.milestone_reviews (milestone_id, user_id, decision) values
   ('00000000-0000-0000-0000-0000000000e1', tests.get_user('admin@mileplan.test'), 'approved');
 update public.milestones set status = 'planned' where id = '00000000-0000-0000-0000-0000000000e1'; -- reviewed, then sent back
+insert into public.tasks (milestone_id, project_id, position, title) values
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000a4', 1, 'Review'),
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000a4', 2, 'Review'); -- duplicates added by hand
 insert into public.payment_requests (project_id, milestone_id, title, amount, due_date, plan_key) values
   ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000e3', 'Q1', 100, '2026-12-10', 'q1'),
   ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000e3', 'Retainer', 100, '2026-12-10', null),
@@ -400,6 +403,28 @@ select is(
   public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), false, null,
     public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint') ->> 'applied',
   'true', 'import_plan: an apply with the current fingerprint goes through');
+
+-- ----------------------------------------------------------------- second review
+select is(public.t_errs(public.t_with('{milestones,0,title}', to_jsonb(chr(9)))),
+  '[{"path":"milestones[0].title","message":"must not be empty"}]'::jsonb, 'import_plan: a title of only a tab is empty');
+select is(public.t_errs(public.t_with('{milestones,0,tasks}', to_jsonb(array['Kickoff', chr(10)]))),
+  '[{"path":"milestones[0].tasks[1]","message":"must not be empty"}]'::jsonb, 'import_plan: a task of only a newline is empty');
+select isnt(
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', jsonb_insert(public.t_px(), '{milestones,1}', '{"key":"n9","title":"N9","due_date":"2026-12-02","description":"a"}'), true) ->> 'fingerprint',
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', jsonb_insert(public.t_px(), '{milestones,1}', '{"key":"n9","title":"N9","due_date":"2026-12-02","description":"b"}'), true) ->> 'fingerprint',
+  'import_plan: the fingerprint covers plan text the diff does not show');
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px() - 'payments', true) ->> 'valid',
+  'true', 'import_plan: a plan without payments does not try to remove requests');
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px() - 'payments', true) -> 'payments' -> 'removed',
+  '[]'::jsonb, 'import_plan: a plan without payments removes none');
+select ok(public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px() - 'payments', true) -> 'payments' -> 'kept' @> '[{"title":"R2"}]',
+  'import_plan: requests a plan without payments leaves out are kept as is');
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a2', jsonb_set(public.t_px(), '{milestones,0,amount}', '100'), true) -> 'errors' -> 0 ->> 'path',
+  'milestones[0].amount', 'import_plan: a milestone amount below its confirmed payments is blocked');
+select ok(
+  not (public.import_plan('00000000-0000-0000-0000-0000000000a4', jsonb_set(public.t_py(), '{milestones,0,tasks}', '["Review"]'), true) -> 'milestones' -> 'changed'
+    @> '[{"key":"y1"}]'),
+  'import_plan: hand-added duplicate tasks are not a reorder');
 
 select * from finish();
 rollback;

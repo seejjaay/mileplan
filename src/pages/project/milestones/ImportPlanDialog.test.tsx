@@ -124,6 +124,7 @@ describe('ImportPlanDialog', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Apply changes' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(refusal.message)
     expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Apply changes' })).toBeDisabled() // its fingerprint is stale now
     await userEvent.click(screen.getByRole('button', { name: 'Check again' }))
     await waitFor(() => expect(previewPlan).toHaveBeenCalledTimes(2))
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())

@@ -61,6 +61,12 @@ describe('PlanPreview', () => {
     expect(screen.queryByRole('heading', { name: 'Removed' })).not.toBeInTheDocument()
   })
 
+  it('shows amounts in the currency the plan sets', () => {
+    render(<PlanPreview result={{ ...tree, project: { changes: { currency: ['PHP', 'USD'] } } }} currency="PHP" tree />)
+    expect(screen.getAllByText(/1,000\.00/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/₱/)).not.toBeInTheDocument()
+  })
+
   it('diff: shows Added, Changed and Removed sections', () => {
     render(<PlanPreview result={diff} currency="PHP" tree={false} />)
     expect(screen.getByRole('heading', { name: 'Added' })).toBeInTheDocument()

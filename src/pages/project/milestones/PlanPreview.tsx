@@ -46,8 +46,11 @@ function Tasks({ titles }: { titles: string[] }) {
   )
 }
 
-export function PlanPreview({ result, currency, tree }: Props) {
+export function PlanPreview({ result, currency: projectCurrency, tree }: Props) {
   const { milestones: m, payments: p, project } = result
+  // Amounts are stored in the currency the plan sets, when it sets one.
+  const planCurrency = project.changes.currency?.[1]
+  const currency = typeof planCurrency === 'string' ? planCurrency : projectCurrency
   const summary = planImportSummary(result)
   const projectChanged = Object.keys(project.changes).length > 0
   const keptAny = m.kept.length + p.kept.length > 0

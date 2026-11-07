@@ -256,7 +256,7 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   - `milestones` (required, 1–100): `key`, `title` and `due_date` are required. `description` (up to 5000), `acceptance_criteria` (up to 50 non-empty strings), `amount` (0 to 9,999,999,999.99, at most 2 decimals) and `tasks` (up to 100 unique non-empty strings of up to 200 characters) are optional. Due dates never go backwards in plan order.
   - `payments` (optional, up to 100): `key`, `title`, `amount` (greater than 0) and `due_date` are required. `milestone` is optional and must be a milestone key in the same plan.
   - `key` matches `^[a-z0-9][a-z0-9_-]{0,39}$` and is unique within its list.
-  - **An omitted optional field is left unchanged**, on a milestone, a payment or the project.
+  - **An omitted optional field is left unchanged**, on a milestone, a payment or the project. A plan with no `payments` list leaves every payment request alone, and one with no `tasks` leaves that milestone's tasks alone.
 - **Keys.** A key is stable across revisions, so a re-import can tell "changed" apart from "removed and added". It's stored in `milestones.plan_key` and `payment_requests.plan_key`.
 - **Unkeyed rows are never touched.** Milestones and requests with no key (added by hand, or created by Split) are listed as "not in the plan, kept as is". They follow the plan's milestones in their existing order.
 - **Tasks match by title** within a milestone. A matching title keeps its status, a new title is added, a missing title is removed, and order follows the plan.
@@ -267,7 +267,7 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
      - the project is closed;
      - a keyed milestone would be removed but is in review, approved or paid, has client reviews, or has confirmed payments (removing it would delete that history);
      - a keyed request would be removed but has any payment submission, rejected ones included, since a rejection keeps the proof and the note (manual delete still cascades with its warning; import never does);
-     - a request's amount would drop below what's already confirmed;
+     - a request's or a milestone's amount would drop below what's already confirmed against it;
      - the currency would change once the project has payment requests or payments;
      - the project would end before it starts, counting a stored date the plan leaves out.
   3. Returns the diff: project field changes, and added, changed, removed and kept milestones and requests, plus whether milestones are reordered. A request that loses its milestone because the plan removes it is listed as changed, unkeyed ones included. A dry run also returns a `fingerprint` of the diff.

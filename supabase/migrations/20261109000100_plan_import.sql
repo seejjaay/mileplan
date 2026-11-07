@@ -60,7 +60,7 @@ begin
   if jsonb_typeof(v) <> 'string' then
     return public.plan_err(v_path, 'must be text');
   end if;
-  if p_nonempty and btrim(v #>> '{}') = '' then
+  if p_nonempty and (v #>> '{}') !~ '[^[:space:]]' then
     return public.plan_err(v_path, 'must not be empty');
   end if;
   if char_length(v #>> '{}') > p_max then
@@ -256,7 +256,7 @@ begin
           for v_j in 0 .. jsonb_array_length(v_x) - 1 loop
             if jsonb_typeof(v_x -> v_j) <> 'string' then
               v_errs := v_errs || public.plan_err(format('%s.acceptance_criteria[%s]', v_path, v_j), 'must be text');
-            elsif btrim((v_x -> v_j) #>> '{}') = '' then
+            elsif ((v_x -> v_j) #>> '{}') !~ '[^[:space:]]' then
               v_errs := v_errs || public.plan_err(format('%s.acceptance_criteria[%s]', v_path, v_j), 'must not be empty');
             end if;
           end loop;
@@ -281,9 +281,9 @@ begin
               continue;
             end if;
             v_title := btrim((v_x -> v_j) #>> '{}');
-            if v_title = '' then
+            if ((v_x -> v_j) #>> '{}') !~ '[^[:space:]]' then
               v_errs := v_errs || public.plan_err(v_tpath, 'must not be empty');
-            elsif char_length(v_title) > 200 then
+            elsif char_length((v_x -> v_j) #>> '{}') > 200 then -- as written, like the schema's maxLength
               v_errs := v_errs || public.plan_err(v_tpath, 'must be at most 200 characters');
             elsif v_title = any (v_tasks) then
               v_errs := v_errs || public.plan_err(v_tpath, format('duplicates %s.tasks[%s]', v_path, array_position(v_tasks, v_title) - 1));
@@ -429,9 +429,6 @@ begin
   -- 1. Validate: shape first, then the checks that need the project's rows.
   v_errs := public.validate_plan(p_plan);
   if v_proj.status not in ('setup', 'active') then
-    if not p_dry_run then
-      raise exception 'project is closed' using errcode = 'MP001';
-    end if;
     v_errs := public.plan_err('project', 'is closed, so its plan can''t be changed') || v_errs;
   end if;
 
@@ -441,6 +438,11 @@ begin
     v_pays := coalesce(p_plan -> 'payments', '[]');
     v_plan_keys := array(select e ->> 'key' from jsonb_array_elements(v_ms) e);
     v_pay_keys := array(select e ->> 'key' from jsonb_array_elements(v_pays) e);
+    if not (p_plan ? 'payments') then
+      -- No payments list: an omitted field is left unchanged, so no request counts as removed.
+      v_pay_keys := v_pay_keys || array(
+        select q.plan_key from public.payment_requests q where q.project_id = p_project_id and q.plan_key is not null);
+    end if;
 
     if v_pj ? 'currency' and (v_pj ->> 'currency') <> v_proj.currency
        and (exists (select 1 from public.payment_requests where project_id = p_project_id)
@@ -496,6 +498,19 @@ begin
       where (e.v ->> 'amount')::numeric < c.total
     loop
       v_errs := v_errs || public.plan_err(format('payments[%s].amount', v_r.i),
+        format('is below the %s already confirmed', v_r.total));
+    end loop;
+
+    for v_r in
+      select e.ord - 1 as i, c.total
+      from jsonb_array_elements(v_ms) with ordinality e(v, ord)
+      join public.milestones m on m.project_id = p_project_id and m.plan_key = e.v ->> 'key'
+      cross join lateral (
+        select coalesce(sum(p.amount), 0) as total from public.payments p where p.milestone_id = m.id and p.status = 'confirmed'
+      ) c
+      where e.v ? 'amount' and (e.v ->> 'amount')::numeric is distinct from m.amount and (e.v ->> 'amount')::numeric < c.total
+    loop
+      v_errs := v_errs || public.plan_err(format('milestones[%s].amount', v_r.i),
         format('is below the %s already confirmed', v_r.total));
     end loop;
   end if;
@@ -597,7 +612,8 @@ begin
         v_et := array(select btrim(t.title) from public.tasks t where t.milestone_id = v_ex.id order by t.position, t.created_at);
         v_tadd := array(select distinct x from unnest(v_tt) x where x <> all (v_et));
         v_trem := array(select distinct x from unnest(v_et) x where x <> all (v_tt));
-        v_treorder := array(select x from unnest(v_et) x where x = any (v_tt))
+        v_treorder := array(select d.x from (select t.x, min(t.o) as o from unnest(v_et) with ordinality t(x, o)
+                                             where t.x = any (v_tt) group by t.x) d order by d.o)
                       is distinct from array(select x from unnest(v_tt) with ordinality t(x, o) where x = any (v_et) order by o);
       end if;
 
@@ -644,7 +660,7 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('title', q.title) order by q.due_date, q.created_at), '[]')
     into v_p_kept
   from public.payment_requests q
-  where q.project_id = p_project_id and q.plan_key is null
+  where q.project_id = p_project_id and (q.plan_key is null or not (p_plan ? 'payments'))
     and (q.milestone_id is null or q.milestone_id <> all (v_removed_mids));
 
   if not p_dry_run then
@@ -711,11 +727,12 @@ begin
   -- Unkeyed requests on a removed milestone lose it too (ON DELETE SET NULL): report them as changed.
   v_p_changed := v_p_changed || coalesce((
     select jsonb_agg(jsonb_build_object(
-             'key', null, 'title', q.title,
+             'key', q.plan_key, 'title', q.title,
              'changes', jsonb_build_object('milestone', jsonb_build_array(coalesce(m.plan_key, m.title), null::jsonb)))
            order by q.due_date, q.created_at)
     from public.payment_requests q join public.milestones m on m.id = q.milestone_id
-    where q.project_id = p_project_id and q.plan_key is null and q.milestone_id = any (v_removed_mids)), '[]');
+    where q.project_id = p_project_id and (q.plan_key is null or not (p_plan ? 'payments'))
+      and q.milestone_id = any (v_removed_mids)), '[]');
 
   -- 5. Order. Plan milestones take positions 1..n in plan order; kept (unkeyed) rows follow in their old order.
   if not p_dry_run then
@@ -738,7 +755,7 @@ begin
     'payments', jsonb_build_object(
       'added', v_p_added, 'changed', v_p_changed, 'removed', v_p_removed, 'kept', v_p_kept));
   return v_result || jsonb_build_object(
-    'valid', true, 'applied', false, 'errors', '[]'::jsonb, 'fingerprint', md5(v_result::text));
+    'valid', true, 'applied', false, 'errors', '[]'::jsonb, 'fingerprint', md5(v_result::text || p_plan::text));
 end;
 $$;
 

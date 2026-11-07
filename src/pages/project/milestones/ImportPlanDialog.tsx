@@ -160,7 +160,7 @@ export function ImportPlanDialog({ projectId, projectStatus, currency, emptyProj
           {result?.valid && (
             <Button
               loading={apply.isPending}
-              disabled={summary?.isNoop || preview.isPending}
+              disabled={summary?.isNoop || preview.isPending || applyError !== null /* stale until Check again */}
               onClick={() => {
                 if (!apply.isPending) apply.mutate()
               }}
