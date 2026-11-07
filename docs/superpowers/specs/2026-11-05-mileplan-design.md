@@ -71,10 +71,13 @@ Every list or data screen has distinct **loading** (skeleton), **error** (messag
     - The admin can also record a payment directly (cash, or proof sent by chat), with or without proof
   - **Messages:** realtime thread
   - **Timeline:** the full activity log with diffs
-  - **Import plan:**
-    - Upload `plan.json`, then a validation result, then a preview
-    - For an empty project the preview is a tree of what will be created. For an existing project it's a diff of added, changed and removed items.
-    - Then confirm
+  - **Import plan** (button on the Milestones tab, next to "Add milestone"; hidden for a client and for a closed project):
+    - Choose `plan.json` (`.json`, up to 256 KB). A parse error reads "plan.json isn't valid JSON (line X, column Y)".
+    - The server validates it. Errors are listed with their JSON paths under "Fix these in plan.json and choose it again", and nothing else shows.
+    - Otherwise a preview. For a project with no milestones and no payment requests it's a tree of what will be created. For anything else it's a diff of added, changed and removed items, plus "Not in the plan, kept as is" for rows the plan doesn't name, and a note when milestones will be reordered.
+    - On an active project the dialog also asks for an optional reason, which is shared by every change.
+    - An identical plan shows "Nothing to change" and the confirm button is disabled.
+    - "Apply changes" applies everything in one transaction, then toasts "Plan imported: n added, n changed, n removed". If the apply is refused (the project changed since the preview), the dialog shows why and offers "Check again".
 
 ### Client
 - **`/` My projects:** cards. If there's only one project, the client goes straight to it.
@@ -225,7 +228,7 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   - The admin sees "Acknowledged by Ana · Nov 6, 14:02", or "Not yet acknowledged", for each change.
 
 ## 9. Plan import
-- **`plan.json`** follows the JSON Schema at `schemas/plan.schema.json`:
+- **`plan.json`** follows the JSON Schema at `schemas/plan.schema.json` (`schema_version: 1`). Unknown keys are errors at every level.
 
 ```json
 {
@@ -241,18 +244,35 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
       "amount": 15000,
       "tasks": ["Kickoff call", "Sitemap", "Wireframes"]
     }
+  ],
+  "payments": [
+    { "key": "p1", "title": "Deposit", "amount": 5000, "due_date": "2026-11-10", "milestone": "m1" }
   ]
 }
 ```
 
-- `key` is stable across revisions, so a re-import can tell "changed" apart from "removed and added".
-- On import, each milestone's key is stored in `milestones.plan_key`.
-- **`import_plan(project_id, plan jsonb, dry_run bool)`**, admin only:
-  1. Validates against the schema in SQL (required fields, types, no duplicate keys, dates in order, amounts ≥ 0).
-  2. Returns the diff (`added`, `changed` with field-level detail, `removed`).
-  3. If `dry_run` is false, applies everything in one transaction. Any error rolls back all of it.
-- Removed milestones that already have confirmed payments are blocked, with a clear error.
-- **Through Claude:** Claude runs the same function through the Supabase MCP or SQL: first a dry run, then shows CJ the diff, then applies only on CJ's OK.
+- **Fields.**
+  - `project.title` is required (1–200 characters). `summary` (up to 2000), `currency` (3 uppercase letters) and `start_date` / `end_date` (start not after end) are optional.
+  - `milestones` (required, 1–100): `key`, `title` and `due_date` are required. `description` (up to 5000), `acceptance_criteria` (up to 50 non-empty strings), `amount` (0 to 9,999,999,999.99, at most 2 decimals) and `tasks` (up to 100 unique non-empty strings of up to 200 characters) are optional. Due dates never go backwards in plan order.
+  - `payments` (optional, up to 100): `key`, `title`, `amount` (greater than 0) and `due_date` are required. `milestone` is optional and must be a milestone key in the same plan.
+  - `key` matches `^[a-z0-9][a-z0-9_-]{0,39}$` and is unique within its list.
+  - **An omitted optional field is left unchanged**, on a milestone, a payment or the project.
+- **Keys.** A key is stable across revisions, so a re-import can tell "changed" apart from "removed and added". It's stored in `milestones.plan_key` and `payment_requests.plan_key`.
+- **Unkeyed rows are never touched.** Milestones and requests with no key (added by hand, or created by Split) are listed as "not in the plan, kept as is". They follow the plan's milestones in their existing order.
+- **Tasks match by title** within a milestone. A matching title keeps its status, a new title is added, a missing title is removed, and order follows the plan.
+- **What import writes.** Milestones: `title`, `description`, `acceptance_criteria`, `due_date`, `amount`, `position` and tasks. Requests: `title`, `amount`, `due_date` and the milestone link. Never `status`, `on_hold` or approvals.
+- **`import_plan(project_id, plan jsonb, dry_run bool, reason text)`**, admin only, one function for the app and for Claude:
+  1. Validates the shape and collects every error as `{path, message}` (for example `milestones[2].due_date` / `is before milestones[1].due_date`).
+  2. Checks the project's state. These are errors too, so a preview shows them before anything is written:
+     - the project is closed;
+     - a keyed milestone would be removed but has confirmed payments;
+     - a keyed request would be removed but has a pending or confirmed payment (manual delete still cascades with its warning; import never does);
+     - a request's amount would drop below what's already confirmed;
+     - the currency would change while the project has payment requests.
+  3. Returns the diff: project field changes, and added, changed, removed and kept milestones and requests, plus whether milestones are reordered. The shape is the same for a dry run and an apply.
+  4. If `dry_run` is false, applies everything in one transaction, after locking the project row. Any error rolls back all of it. An invalid apply raises `22023` with the first error (this is what stops a stale preview: a client sending a proof between preview and apply makes the apply refuse), and a closed project raises `MP001`.
+- **Activity.** The reason is shared by every change. On an active project, milestone and request changes become plan changes the client acknowledges from the existing banner in one click. A setup import logs none. Re-importing an identical plan changes nothing and logs nothing.
+- **Through Claude:** Claude runs the same function over SQL: first a dry run, then shows CJ the diff, then applies only on CJ's OK.
 
 ## 10. Document templates (`templates/`)
 Each template is Markdown with `{{placeholders}}` and exports to PDF or DOCX. They are drafting aids, not legal advice: have a local lawyer review the service contract once.
@@ -305,10 +325,11 @@ Each template is Markdown with `{{placeholders}}` and exports to PDF or DOCX. Th
   - A `setup` project is invisible to its own member.
   - `activity` can't be written directly.
   - The `plan_change` flag is set correctly.
-  - `import_plan`: valid, invalid (full rollback), re-import diff, and client denied.
+  - `import_plan`: every validation rule reports its path, an invalid apply writes nothing, a dry run writes nothing, a re-import diffs by key and title (a Done task survives), the state checks block, an active import logs plan changes with the shared reason, an identical re-import is a no-op, and a client is denied.
+  - `plan.schema.json` and `import_plan` give the same verdict on every fixture plan.
 - **Unit tests (Vitest):** the plan schema, diff formatting and amount maths.
 - **End-to-end tests (Playwright, two browser contexts):**
-  1. Admin creates a project and imports the plan and documents.
+  1. Admin creates a project, imports the example `plan.json` (milestones, tasks and scheduled payments) and uploads the documents.
   2. Admin adds the client and activates the project.
   3. Client redeems the setup link.
   4. Admin moves M1 to in_review, and the client approves it.
