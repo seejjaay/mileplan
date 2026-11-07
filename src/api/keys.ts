@@ -9,6 +9,8 @@ export const qk = {
   planChanges: (projectId: string) => ['planChanges', projectId] as const,
   reviews: (projectId: string) => ['reviews', projectId] as const,
   payments: (projectId: string) => ['payments', projectId] as const,
+  messages: (projectId: string) => ['messages', projectId] as const,
+  unread: () => ['unread'] as const,
   lastVisit: (projectId: string) => ['lastVisit', projectId] as const,
   // starts with the activity key, so a live activity event refreshes it too
   changesSince: (projectId: string, since: string | null) => ['activity', projectId, 'since', since] as const,
