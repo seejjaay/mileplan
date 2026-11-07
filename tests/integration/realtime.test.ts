@@ -12,19 +12,25 @@ async function userId(email: string): Promise<string> {
   return data.users.find((u) => u.email === email)!.id
 }
 
-/** Subscribes to milestone changes for `project` and resolves once the channel is live. */
+/**
+ * Subscribes to milestone changes for `project` and resolves once the server is streaming them.
+ * SUBSCRIBED only means the channel joined; the change stream is registered later (seconds later on a cold
+ * Realtime) and announced by a `postgres_changes` system message. Writes before that are never delivered.
+ */
 async function listen(client: SupabaseClient): Promise<{ events: unknown[]; stop: () => void }> {
   const events: unknown[] = []
   const channel = client.channel(`rt-test-${Math.random().toString(36).slice(2)}`)
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'milestones', filter: `project_id=eq.${project}` }, (payload) => events.push(payload))
   await new Promise<void>((resolve, reject) => {
+    channel.on('system', {}, (payload: { extension: string; status: string; message: string }) => {
+      if (payload.extension !== 'postgres_changes') return
+      if (payload.status === 'ok') resolve()
+      else reject(new Error(`realtime postgres_changes ${payload.status}: ${payload.message}`))
+    })
     channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') resolve()
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') reject(new Error(`realtime ${status}`))
     })
   })
-  // give the server a moment to register the change-stream filter
-  await new Promise((r) => setTimeout(r, 1500))
   return { events, stop: () => void client.removeChannel(channel) }
 }
 
