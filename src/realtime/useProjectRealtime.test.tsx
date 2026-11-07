@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { act, render, renderHook, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { qk } from '../api/keys'
+import type { MessageRow } from '../api/messages'
+import type { Thread } from '../api/messageCache'
 import { ReconnectingPill } from './ReconnectingPill'
 import { useProjectRealtime } from './useProjectRealtime'
 
@@ -48,6 +50,58 @@ describe('useProjectRealtime', () => {
     expect(find('activity')?.filter).toBe('project_id=eq.p1')
     expect(find('projects')?.filter).toBe('id=eq.p1')
     expect(find('plan_change_acks')?.filter).toBeUndefined() // no project_id column; RLS scopes it
+  })
+
+  it('subscribes to the messages of the project', () => {
+    renderHook(() => useProjectRealtime('p1'), { wrapper })
+    expect(handlers.find((h) => h.table === 'messages')?.filter).toBe('project_id=eq.p1')
+  })
+
+  describe('messages', () => {
+    const msg = (over: Partial<MessageRow> = {}): MessageRow => ({
+      id: 'm1',
+      created_at: '2026-11-08T10:00:00Z',
+      project_id: 'p1',
+      sender_id: 'u1',
+      body: 'hi',
+      attachments: [],
+      edited_at: null,
+      ...over,
+    })
+    const seed = (rows: MessageRow[]) => queryClient.setQueryData<Thread>(qk.messages('p1'), { pages: [rows], pageParams: [undefined] })
+
+    it('an INSERT is patched into the thread without refetching it', () => {
+      seed([msg()])
+      const set = vi.spyOn(queryClient, 'setQueryData')
+      const spy = vi.spyOn(queryClient, 'invalidateQueries')
+      renderHook(() => useProjectRealtime('p1'), { wrapper })
+      fire('messages', { eventType: 'INSERT', new: msg({ id: 'm2', body: 'new' }) })
+      expect(set).toHaveBeenCalledWith(qk.messages('p1'), expect.any(Function))
+      expect(queryClient.getQueryData<Thread>(qk.messages('p1'))?.pages[0].map((m) => m.id)).toEqual(['m2', 'm1'])
+      expect(keysInvalidated(spy)).not.toContain(JSON.stringify(qk.messages('p1')))
+    })
+
+    it('an UPDATE replaces the row', () => {
+      seed([msg()])
+      renderHook(() => useProjectRealtime('p1'), { wrapper })
+      fire('messages', { eventType: 'UPDATE', new: msg({ body: 'edited', edited_at: '2026-11-08T10:05:00Z' }) })
+      expect(queryClient.getQueryData<Thread>(qk.messages('p1'))?.pages[0][0]).toMatchObject({ body: 'edited', edited_at: '2026-11-08T10:05:00Z' })
+    })
+
+    it('an INSERT before the thread has loaded writes nothing', () => {
+      renderHook(() => useProjectRealtime('p1'), { wrapper })
+      fire('messages', { eventType: 'INSERT', new: msg() })
+      expect(queryClient.getQueryData(qk.messages('p1'))).toBeUndefined()
+    })
+
+    it('the stream going live refetches the thread and the unread counts', () => {
+      const spy = vi.spyOn(queryClient, 'invalidateQueries')
+      renderHook(() => useProjectRealtime('p1'), { wrapper })
+      streaming()
+      const keys = keysInvalidated(spy)
+      expect(keys).toContain(JSON.stringify(qk.messages('p1')))
+      expect(keys).toContain(JSON.stringify(qk.unread()))
+    })
   })
 
   it('a milestones event refreshes milestones, the project and the dashboard', () => {

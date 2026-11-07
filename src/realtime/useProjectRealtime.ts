@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { qk } from '../api/keys'
+import { appendMessage, replaceMessage, type Thread } from '../api/messageCache'
+import type { MessageRow } from '../api/messages'
 import { supabase } from '../lib/supabase'
 
 /** Show "Reconnecting…" only if a channel that was working has been down this long. */
@@ -21,6 +23,8 @@ function invalidateAll(queryClient: QueryClient, projectId: string) {
     qk.planChanges(projectId),
     qk.reviews(projectId),
     qk.payments(projectId),
+    qk.messages(projectId),
+    qk.unread(),
   ]) {
     void queryClient.invalidateQueries({ queryKey })
   }
@@ -93,6 +97,14 @@ export function useProjectRealtime(projectId: string) {
         }
         return
       }
+      if (table === 'messages') {
+        // patch the open thread in place instead of refetching it; a thread that isn't loaded yet stays unwritten
+        const row = payload.new as MessageRow | undefined
+        if (!row) return
+        const patch = payload.eventType === 'INSERT' ? appendMessage : payload.eventType === 'UPDATE' ? replaceMessage : undefined
+        if (patch) queryClient.setQueryData<Thread>(qk.messages(projectId), (t) => patch(t, row))
+        return
+      }
       for (const queryKey of keysFor(table, projectId)) void queryClient.invalidateQueries({ queryKey })
     }
 
@@ -106,6 +118,7 @@ export function useProjectRealtime(projectId: string) {
       ['payment_requests', `project_id=eq.${projectId}`],
       ['payments', `project_id=eq.${projectId}`],
       ['activity', `project_id=eq.${projectId}`],
+      ['messages', `project_id=eq.${projectId}`],
       ['plan_change_acks', undefined],
       ['milestone_reviews', undefined],
     ]

@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { useUnreadRealtime } from '../realtime/useUnreadRealtime'
 import { ErrorBoundary } from './ErrorBoundary'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -11,7 +12,8 @@ function PageFallback() {
 }
 
 export function AppShell() {
-  const { profile, signOut } = useAuth()
+  const { session, profile, signOut } = useAuth()
+  useUnreadRealtime(session?.user.id)
   const location = useLocation()
   const main = useRef<HTMLElement>(null)
   const first = useRef(true)

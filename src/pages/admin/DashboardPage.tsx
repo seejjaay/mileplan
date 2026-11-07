@@ -2,11 +2,13 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listProjects, type ProjectStatus } from '../../api/projects'
 import { qk } from '../../api/keys'
+import { useUnreadCounts } from '../../api/useUnreadCounts'
 import { formatDate } from '../../lib/format'
 import { useTitle } from '../../lib/useTitle'
 import { AsyncView } from '../../ui/AsyncView'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
+import { UnreadBadge } from '../../ui/UnreadBadge'
 import { OutstandingLine } from '../project/payments/OutstandingLine'
 import { projectChip } from '../project/projectStatus'
 
@@ -20,6 +22,7 @@ const FILTERS: { value: ProjectStatus | 'all'; label: string }[] = [
 
 export default function DashboardPage() {
   useTitle('Dashboard')
+  const unread = useUnreadCounts()
   const [params, setParams] = useSearchParams()
   const filter = FILTERS.find((f) => f.value === params.get('status'))?.value ?? 'all'
   const query = useQuery({ queryKey: qk.projects(), queryFn: listProjects })
@@ -60,7 +63,10 @@ export default function DashboardPage() {
                 <Link to={`/projects/${p.id}`} className="flex h-full flex-col gap-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
                   <span className="flex items-start justify-between gap-3">
                     <span className="font-medium">{p.title}</span>
-                    <StatusChip {...projectChip[p.status]} />
+                    <span className="flex items-center gap-2">
+                      <UnreadBadge count={unread[p.id] ?? 0} />
+                      <StatusChip {...projectChip[p.status]} />
+                    </span>
                   </span>
                   <ProgressBar value={p.percent} label={`${p.title} progress`} />
                   <span className="text-sm text-[var(--muted)]">
