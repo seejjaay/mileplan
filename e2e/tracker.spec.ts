@@ -37,7 +37,7 @@ test('admin builds a project and activates it; the client sees it read-only', as
   await expect(admin.getByText('Setting up')).toBeVisible()
 
   await admin.getByRole('link', { name: 'Milestones', exact: true }).click()
-  await expect(admin.getByText('No milestones yet. Add the first one.')).toBeVisible()
+  await expect(admin.getByText('No milestones yet. Add the first one, or import a plan.')).toBeVisible()
   for (const [name, amount, due] of [
     ['Discovery', '1000', '2026-12-15'],
     ['Build', '2000', '2026-12-30'],
