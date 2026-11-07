@@ -7,14 +7,15 @@ import { adminServiceClient, signIn } from './env'
 
 // plan.schema.json is for Claude and editors; import_plan is the authority. Every fixture must get the same
 // verdict from both, so the two cannot drift apart. Rules JSON Schema can't express (unique keys, date order,
-// cross-references, real calendar dates) live in `invalid-sql-only/` and are checked against SQL alone.
+// cross-references, real calendar dates, 2-decimal amounts) live in `invalid-sql-only/` and are checked against SQL alone.
 
 const FIXTURES = 'tests/fixtures/plans'
 const service = adminServiceClient()
 let admin: SupabaseClient
 let project: string
 
-const ajv = new Ajv2020({ allErrors: true, multipleOfPrecision: 2 })
+// Default options on purpose: this is how editors and other tools will read the schema.
+const ajv = new Ajv2020({ allErrors: true })
 const validateSchema = ajv.compile(JSON.parse(readFileSync('schemas/plan.schema.json', 'utf8')))
 
 function load(dir: string): [string, unknown][] {

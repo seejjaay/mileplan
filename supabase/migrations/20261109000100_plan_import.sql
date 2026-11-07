@@ -31,6 +31,12 @@ exception when others then
 end;
 $$;
 
+-- The one place the key rule lives (the JSON Schema mirrors it; the agreement test keeps them in step).
+create function public.plan_valid_key(p_val jsonb) returns boolean
+language sql immutable set search_path = '' as $$
+  select coalesce(jsonb_typeof(p_val) = 'string' and (p_val #>> '{}') ~ '^[a-z0-9][a-z0-9_-]{0,39}$', false)
+$$;
+
 create function public.plan_unknown_keys(p_obj jsonb, p_path text, p_allowed text[]) returns jsonb
 language sql immutable set search_path = '' as $$
   select coalesce(
@@ -127,8 +133,8 @@ begin
   if v is null then
     return public.plan_err(v_path, 'is required');
   end if;
-  v_key := case when jsonb_typeof(v) = 'string' then v #>> '{}' end;
-  if v_key is null or v_key !~ '^[a-z0-9][a-z0-9_-]{0,39}$' then
+  v_key := v #>> '{}';
+  if not public.plan_valid_key(v) then
     return public.plan_err(v_path, 'must be lowercase letters, digits, - or _ (1-40 characters)');
   end if;
   if v_key = any (p_seen) then
@@ -225,7 +231,7 @@ begin
         || public.plan_check_date(v_m, 'due_date', v_path, true)
         || public.plan_check_amount(v_m, 'amount', v_path, false, false);
       v_mkeys := v_mkeys || case
-        when jsonb_typeof(v_m -> 'key') = 'string' and (v_m ->> 'key') ~ '^[a-z0-9][a-z0-9_-]{0,39}$' then v_m ->> 'key'
+        when public.plan_valid_key(v_m -> 'key') then v_m ->> 'key'
         else '' end;
 
       -- due dates never go backwards in plan order
@@ -313,7 +319,7 @@ begin
           || public.plan_check_amount(v_p, 'amount', v_path, true, true)
           || public.plan_check_date(v_p, 'due_date', v_path, true);
         v_pkeys := v_pkeys || case
-          when jsonb_typeof(v_p -> 'key') = 'string' and (v_p ->> 'key') ~ '^[a-z0-9][a-z0-9_-]{0,39}$' then v_p ->> 'key'
+          when public.plan_valid_key(v_p -> 'key') then v_p ->> 'key'
           else '' end;
         if v_p ? 'milestone' then
           if jsonb_typeof(v_p -> 'milestone') <> 'string' then
@@ -339,8 +345,13 @@ $$;
 --
 -- Rules, all decided in the plan: unkeyed rows are never touched; tasks match by title within a milestone;
 -- an omitted optional field is left unchanged; status, on_hold and approvals are never written.
+--
+-- A dry run returns a fingerprint (md5 of its diff). An apply re-runs the dry run against the locked project and
+-- refuses with 22023 unless it is still valid and, when p_expected is given, has the same fingerprint: it applies
+-- exactly what the admin previewed, or nothing. The apply returns that pre-write diff.
 create function public.import_plan(
-  p_project_id uuid, p_plan jsonb, p_dry_run boolean default true, p_reason text default null
+  p_project_id uuid, p_plan jsonb, p_dry_run boolean default true, p_reason text default null,
+  p_expected text default null
 ) returns jsonb
 language plpgsql set search_path = '' as $$
 declare
@@ -365,6 +376,14 @@ declare
   v_idmap jsonb := '{}';
   v_ids uuid[] := '{}';
   v_plan_keys text[];
+  v_pay_keys text[];
+  v_removed_mids uuid[] := '{}';
+  v_check jsonb;
+  v_result jsonb;
+  v_why text;
+  v_old_label text;
+  v_d1 date;
+  v_d2 date;
   v_cur uuid[];
   v_fin uuid[];
   v_reordered boolean;
@@ -394,6 +413,19 @@ begin
     raise exception 'project not found' using errcode = 'P0002';
   end if;
 
+  if not p_dry_run then
+    if v_proj.status not in ('setup', 'active') then
+      raise exception 'project is closed' using errcode = 'MP001';
+    end if;
+    v_check := public.import_plan(p_project_id, p_plan, true, p_reason);
+    if not (v_check ->> 'valid')::boolean then
+      raise exception '% %', v_check -> 'errors' -> 0 ->> 'path', v_check -> 'errors' -> 0 ->> 'message' using errcode = '22023';
+    end if;
+    if p_expected is not null and p_expected is distinct from v_check ->> 'fingerprint' then
+      raise exception 'the project changed since the preview: check the plan again' using errcode = '22023';
+    end if;
+  end if;
+
   -- 1. Validate: shape first, then the checks that need the project's rows.
   v_errs := public.validate_plan(p_plan);
   if v_proj.status not in ('setup', 'active') then
@@ -407,31 +439,50 @@ begin
     v_pj := p_plan -> 'project';
     v_ms := p_plan -> 'milestones';
     v_pays := coalesce(p_plan -> 'payments', '[]');
+    v_plan_keys := array(select e ->> 'key' from jsonb_array_elements(v_ms) e);
+    v_pay_keys := array(select e ->> 'key' from jsonb_array_elements(v_pays) e);
 
     if v_pj ? 'currency' and (v_pj ->> 'currency') <> v_proj.currency
-       and exists (select 1 from public.payment_requests where project_id = p_project_id) then
-      v_errs := v_errs || public.plan_err('project.currency', 'can''t change while the project has payment requests');
+       and (exists (select 1 from public.payment_requests where project_id = p_project_id)
+            or exists (select 1 from public.payments where project_id = p_project_id)) then
+      v_errs := v_errs || public.plan_err('project.currency', 'can''t change once the project has payment requests or payments');
+    end if;
+
+    -- An omitted date is left as stored, so check the range the project will actually end up with.
+    if (v_pj ? 'start_date') <> (v_pj ? 'end_date') then
+      v_d1 := coalesce(public.plan_date(v_pj -> 'start_date'), v_proj.start_date);
+      v_d2 := coalesce(public.plan_date(v_pj -> 'end_date'), v_proj.end_date);
+      if v_d1 is not null and v_d2 is not null and v_d2 < v_d1 then
+        v_errs := v_errs || case when v_pj ? 'end_date'
+          then public.plan_err('project.end_date', format('is before the project''s start date (%s)', v_d1))
+          else public.plan_err('project.start_date', format('is after the project''s end date (%s)', v_d2)) end;
+      end if;
     end if;
 
     for v_r in
-      select m.id, m.plan_key, m.title from public.milestones m
-      where m.project_id = p_project_id and m.plan_key is not null
-        and not exists (select 1 from jsonb_array_elements(v_ms) e where e ->> 'key' = m.plan_key)
+      select m.id, m.plan_key, m.title, m.status from public.milestones m
+      where m.project_id = p_project_id and m.plan_key is not null and m.plan_key <> all (v_plan_keys)
     loop
-      if exists (select 1 from public.payments where milestone_id = v_r.id and status = 'confirmed') then
-        v_errs := v_errs || public.plan_err('milestones.' || v_r.plan_key,
-          format('"%s" can''t be removed: it has confirmed payments', v_r.title));
+      -- Removing a milestone deletes its reviews and tasks: never do that to work the client has seen or paid for.
+      v_why := case
+        when v_r.status in ('in_review', 'approved', 'paid') then format('it is %s', replace(v_r.status::text, '_', ' '))
+        when exists (select 1 from public.milestone_reviews where milestone_id = v_r.id) then 'it has client reviews'
+        when exists (select 1 from public.payments where milestone_id = v_r.id and status = 'confirmed') then 'it has confirmed payments'
+      end;
+      if v_why is not null then
+        v_errs := v_errs || public.plan_err('milestones.' || v_r.plan_key, format('"%s" can''t be removed: %s', v_r.title, v_why));
       end if;
     end loop;
 
     for v_r in
       select q.id, q.plan_key, q.title from public.payment_requests q
       where q.project_id = p_project_id and q.plan_key is not null
-        and not exists (select 1 from jsonb_array_elements(v_pays) e where e ->> 'key' = q.plan_key)
+        and q.plan_key <> all (v_pay_keys)
     loop
-      if exists (select 1 from public.payments where request_id = v_r.id and status in ('pending', 'confirmed')) then
+      -- Deleting a request cascades to its submissions, rejected ones included (the proof and the note).
+      if exists (select 1 from public.payments where request_id = v_r.id) then
         v_errs := v_errs || public.plan_err('payments.' || v_r.plan_key,
-          format('"%s" can''t be removed: it has pending or confirmed payments', v_r.title));
+          format('"%s" can''t be removed: it has payment submissions', v_r.title));
       end if;
     end loop;
 
@@ -473,8 +524,6 @@ begin
   end if;
 
   -- 3. Milestones: what is removed, what is kept, and whether surviving rows change order.
-  v_plan_keys := array(select e ->> 'key' from jsonb_array_elements(v_ms) e);
-
   select coalesce(jsonb_agg(jsonb_build_object('key', m.plan_key, 'title', m.title) order by m.position, m.created_at), '[]')
     into v_m_removed
   from public.milestones m
@@ -494,8 +543,11 @@ begin
   where m.project_id = p_project_id and (m.plan_key is null or m.plan_key = any (v_plan_keys));
   v_reordered := v_cur is distinct from v_fin;
 
+  v_removed_mids := array(
+    select m.id from public.milestones m
+    where m.project_id = p_project_id and m.plan_key is not null and m.plan_key <> all (v_plan_keys));
   if not p_dry_run then
-    delete from public.milestones where project_id = p_project_id and plan_key is not null and plan_key <> all (v_plan_keys);
+    delete from public.milestones where id = any (v_removed_mids);
   end if;
 
   for v_i in 0 .. jsonb_array_length(v_ms) - 1 loop
@@ -587,17 +639,18 @@ begin
     into v_p_removed
   from public.payment_requests q
   where q.project_id = p_project_id and q.plan_key is not null
-    and q.plan_key <> all (array(select e ->> 'key' from jsonb_array_elements(v_pays) e));
+    and q.plan_key <> all (v_pay_keys);
 
   select coalesce(jsonb_agg(jsonb_build_object('title', q.title) order by q.due_date, q.created_at), '[]')
     into v_p_kept
   from public.payment_requests q
-  where q.project_id = p_project_id and q.plan_key is null;
+  where q.project_id = p_project_id and q.plan_key is null
+    and (q.milestone_id is null or q.milestone_id <> all (v_removed_mids));
 
   if not p_dry_run then
     delete from public.payment_requests
     where project_id = p_project_id and plan_key is not null
-      and plan_key <> all (array(select e ->> 'key' from jsonb_array_elements(v_pays) e));
+      and plan_key <> all (v_pay_keys);
   end if;
 
   for v_i in 0 .. jsonb_array_length(v_pays) - 1 loop
@@ -629,10 +682,16 @@ begin
         v_chg := v_chg || jsonb_build_object('due_date', jsonb_build_array(to_jsonb(v_rq.due_date), v_p -> 'due_date'));
       end if;
       if v_p ? 'milestone' then
-        select m.plan_key into v_old_key from public.milestones m where m.id = v_rq.milestone_id;
+        -- Compare by key; show an unkeyed milestone by its title.
+        select m.plan_key, coalesce(m.plan_key, m.title) into v_old_key, v_old_label
+        from public.milestones m where m.id = v_rq.milestone_id;
         if v_old_key is distinct from (v_p ->> 'milestone') then
-          v_chg := v_chg || jsonb_build_object('milestone', jsonb_build_array(to_jsonb(v_old_key), v_p -> 'milestone'));
+          v_chg := v_chg || jsonb_build_object('milestone', jsonb_build_array(to_jsonb(v_old_label), v_p -> 'milestone'));
         end if;
+      elsif v_rq.milestone_id = any (v_removed_mids) then
+        -- The plan doesn't name a milestone and its current one is being removed: it ends up with none.
+        select coalesce(m.plan_key, m.title) into v_old_label from public.milestones m where m.id = v_rq.milestone_id;
+        v_chg := v_chg || jsonb_build_object('milestone', jsonb_build_array(to_jsonb(v_old_label), null::jsonb));
       end if;
 
       if v_chg <> '{}' then
@@ -649,6 +708,15 @@ begin
     end if;
   end loop;
 
+  -- Unkeyed requests on a removed milestone lose it too (ON DELETE SET NULL): report them as changed.
+  v_p_changed := v_p_changed || coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'key', null, 'title', q.title,
+             'changes', jsonb_build_object('milestone', jsonb_build_array(coalesce(m.plan_key, m.title), null::jsonb)))
+           order by q.due_date, q.created_at)
+    from public.payment_requests q join public.milestones m on m.id = q.milestone_id
+    where q.project_id = p_project_id and q.plan_key is null and q.milestone_id = any (v_removed_mids)), '[]');
+
   -- 5. Order. Plan milestones take positions 1..n in plan order; kept (unkeyed) rows follow in their old order.
   if not p_dry_run then
     update public.milestones m set position = r.rn
@@ -660,15 +728,17 @@ begin
     where m.id = r.id and m.position <> r.rn;
   end if;
 
-  return jsonb_build_object(
-    'valid', true,
-    'applied', not p_dry_run,
-    'errors', '[]'::jsonb,
+  if not p_dry_run then
+    return v_check || jsonb_build_object('applied', true); -- the diff as previewed, read before any write
+  end if;
+  v_result := jsonb_build_object(
     'project', jsonb_build_object('changes', v_pc),
     'milestones', jsonb_build_object(
       'added', v_m_added, 'changed', v_m_changed, 'removed', v_m_removed, 'kept', v_m_kept, 'reordered', v_reordered),
     'payments', jsonb_build_object(
       'added', v_p_added, 'changed', v_p_changed, 'removed', v_p_removed, 'kept', v_p_kept));
+  return v_result || jsonb_build_object(
+    'valid', true, 'applied', false, 'errors', '[]'::jsonb, 'fingerprint', md5(v_result::text));
 end;
 $$;
 
@@ -676,13 +746,13 @@ revoke all on function
   public.plan_err(text, text), public.plan_join(text, text), public.plan_date(jsonb),
   public.plan_unknown_keys(jsonb, text, text[]), public.plan_check_text(jsonb, text, text, boolean, boolean, int),
   public.plan_check_date(jsonb, text, text, boolean), public.plan_check_amount(jsonb, text, text, boolean, boolean),
-  public.plan_check_key(jsonb, text, text, text[]), public.validate_plan(jsonb),
-  public.import_plan(uuid, jsonb, boolean, text)
+  public.plan_check_key(jsonb, text, text, text[]), public.plan_valid_key(jsonb), public.validate_plan(jsonb),
+  public.import_plan(uuid, jsonb, boolean, text, text)
 from public, anon;
 grant execute on function
   public.plan_err(text, text), public.plan_join(text, text), public.plan_date(jsonb),
   public.plan_unknown_keys(jsonb, text, text[]), public.plan_check_text(jsonb, text, text, boolean, boolean, int),
   public.plan_check_date(jsonb, text, text, boolean), public.plan_check_amount(jsonb, text, text, boolean, boolean),
-  public.plan_check_key(jsonb, text, text, text[]), public.validate_plan(jsonb),
-  public.import_plan(uuid, jsonb, boolean, text)
+  public.plan_check_key(jsonb, text, text, text[]), public.plan_valid_key(jsonb), public.validate_plan(jsonb),
+  public.import_plan(uuid, jsonb, boolean, text, text)
 to authenticated, service_role;

@@ -1,5 +1,5 @@
 begin;
-select plan(62);
+select plan(76);
 
 -- Fixtures (as postgres) ---------------------------------------------------------------------------------
 -- PS: an empty setup project.  PX: an active project that already has keyed rows and payments.
@@ -21,6 +21,25 @@ insert into public.payment_requests (id, project_id, milestone_id, title, amount
 insert into public.payments (project_id, request_id, amount, status) values
   ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000c1', 400, 'confirmed'),
   ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000c2', 100, 'pending');
+
+-- PY: removal guards and detached requests.  PZ: currency and one-sided dates.
+insert into public.projects (id, title, status, currency, start_date) values
+  ('00000000-0000-0000-0000-0000000000a4', 'PY', 'active', 'PHP', null),
+  ('00000000-0000-0000-0000-0000000000a5', 'PZ', 'active', 'PHP', '2026-12-01');
+insert into public.milestones (id, project_id, position, title, due_date, plan_key, status) values
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000a4', 1, 'Y1', '2026-12-01', 'y1', 'in_review'),
+  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000a4', 2, 'Y2', '2026-12-05', 'y2', 'in_review'),
+  ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-0000000000a4', 3, 'Y3', '2026-12-10', 'y3', 'planned'),
+  ('00000000-0000-0000-0000-0000000000e4', '00000000-0000-0000-0000-0000000000a4', 4, 'Kickoff', '2026-12-20', null, 'planned');
+insert into public.milestone_reviews (milestone_id, user_id, decision) values
+  ('00000000-0000-0000-0000-0000000000e1', tests.get_user('admin@mileplan.test'), 'approved');
+update public.milestones set status = 'planned' where id = '00000000-0000-0000-0000-0000000000e1'; -- reviewed, then sent back
+insert into public.payment_requests (project_id, milestone_id, title, amount, due_date, plan_key) values
+  ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000e3', 'Q1', 100, '2026-12-10', 'q1'),
+  ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000e3', 'Retainer', 100, '2026-12-10', null),
+  ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000e4', 'Q3', 100, '2026-12-20', 'q3');
+insert into public.payments (project_id, amount, status) values
+  ('00000000-0000-0000-0000-0000000000a5', 250, 'confirmed'); -- a legacy payment: no request
 
 -- Plan builders (callable by the authenticated role; rolled back with the test).
 create function public.t_base() returns jsonb language sql as $$ select $j$
@@ -74,6 +93,25 @@ create function public.t_px() returns jsonb language sql as $$ select $j$
     { "key": "r3", "title": "R3", "amount": 50, "due_date": "2026-12-01" } ] }
 $j$::jsonb $$;
 
+-- PY plan that keeps all three keyed milestones; q1 names no milestone, q3 moves off the unkeyed Kickoff.
+create function public.t_py() returns jsonb language sql as $$ select $j$
+{ "schema_version": 1,
+  "project": { "title": "PY" },
+  "milestones": [
+    { "key": "y1", "title": "Y1", "due_date": "2026-12-01" },
+    { "key": "y2", "title": "Y2", "due_date": "2026-12-05" },
+    { "key": "y3", "title": "Y3", "due_date": "2026-12-10" } ],
+  "payments": [
+    { "key": "q1", "title": "Q1", "amount": 100, "due_date": "2026-12-10" },
+    { "key": "q3", "title": "Q3", "amount": 100, "due_date": "2026-12-20", "milestone": "y1" } ] }
+$j$::jsonb $$;
+create function public.t_pz() returns jsonb language sql as $$ select $j$
+{ "schema_version": 1,
+  "project": { "title": "PZ" },
+  "milestones": [ { "key": "z1", "title": "Z1", "due_date": "2026-12-01" } ] }
+$j$::jsonb $$;
+create table public.t_fp (name text primary key, fp text);
+grant select, insert on public.t_fp to authenticated;
 create table public.t_counts (name text primary key, n bigint);
 grant select, insert on public.t_counts to authenticated;
 
@@ -293,16 +331,75 @@ select is(
   (select count(*) from public.payment_requests where plan_key = 'r3' and project_id = '00000000-0000-0000-0000-0000000000a2'),
   1::bigint, 'import_plan: the refused apply left the request in place');
 
--- Removing a request with only a rejected payment, and a milestone with none, is allowed.
+-- A rejected submission is still a record (the proof and the note): the request can't be removed by import.
 select tests.clear_auth();
 update public.payments set status = 'rejected' where request_id = '00000000-0000-0000-0000-0000000000c3';
 select tests.authenticate_as(tests.get_user('admin@mileplan.test'));
 select is(
-  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px() #- '{payments,2}', false) ->> 'applied',
-  'true', 'import_plan: a request with only a rejected payment can be removed');
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px() #- '{payments,2}', true) -> 'errors' -> 0 ->> 'path',
+  'payments.r3', 'import_plan: removing a request with only a rejected payment is blocked');
 select is(
   (select count(*) from public.payment_requests where plan_key = 'r3' and project_id = '00000000-0000-0000-0000-0000000000a2'),
-  0::bigint, 'import_plan: the request is gone after the apply');
+  1::bigint, 'import_plan: the request with a rejected payment is still there');
+
+-- ----------------------------------------------------------------- removal guards (PY)
+select is(
+  public.import_plan('00000000-0000-0000-0000-0000000000a4', public.t_py() #- '{milestones,0}' #- '{payments,1,milestone}', true) -> 'errors' -> 0 ->> 'path',
+  'milestones.y1', 'import_plan: removing a milestone with client reviews is blocked');
+select is(
+  public.import_plan('00000000-0000-0000-0000-0000000000a4', public.t_py() #- '{milestones,1}', true) -> 'errors' -> 0 ->> 'path',
+  'milestones.y2', 'import_plan: removing a milestone that is in review is blocked');
+
+-- Removing y3 detaches q1 (its plan entry names no milestone) and the unkeyed Retainer: the diff says so.
+select ok(
+  public.import_plan('00000000-0000-0000-0000-0000000000a4', public.t_py() #- '{milestones,2}', true) -> 'payments' -> 'changed'
+    @> '[{"key":"q1","changes":{"milestone":["y3",null]}}]',
+  'import_plan: a keyed request losing its milestone is reported as changed');
+select ok(
+  public.import_plan('00000000-0000-0000-0000-0000000000a4', public.t_py() #- '{milestones,2}', true) -> 'payments' -> 'changed'
+    @> '[{"key":null,"title":"Retainer","changes":{"milestone":["y3",null]}}]',
+  'import_plan: an unkeyed request losing its milestone is reported as changed');
+select ok(
+  not (public.import_plan('00000000-0000-0000-0000-0000000000a4', public.t_py() #- '{milestones,2}', true) -> 'payments' -> 'kept'
+    @> '[{"title":"Retainer"}]'),
+  'import_plan: a detached unkeyed request is not listed as kept as is');
+select ok(
+  public.import_plan('00000000-0000-0000-0000-0000000000a4', public.t_py(), true) -> 'payments' -> 'changed'
+    @> '[{"key":"q3","changes":{"milestone":["Kickoff","y1"]}}]',
+  'import_plan: moving a request off an unkeyed milestone names that milestone');
+
+-- ----------------------------------------------------------------- currency and dates (PZ)
+select is(
+  public.import_plan('00000000-0000-0000-0000-0000000000a5', jsonb_set(public.t_pz(), '{project,currency}', '"USD"'), true) -> 'errors' -> 0 ->> 'path',
+  'project.currency', 'import_plan: changing currency with recorded payments is blocked');
+select is(
+  public.import_plan('00000000-0000-0000-0000-0000000000a5', jsonb_set(public.t_pz(), '{project,end_date}', '"2026-11-15"'), true) -> 'errors' -> 0 ->> 'path',
+  'project.end_date', 'import_plan: an end date before the stored start date is blocked');
+
+-- ----------------------------------------------------------------- the apply must match the preview (PX)
+select isnt(
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint',
+  null, 'import_plan: a dry run returns a fingerprint of its diff');
+select is(
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint',
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint',
+  'import_plan: the fingerprint is stable while nothing changes');
+select throws_ok(
+  format($f$select public.import_plan('00000000-0000-0000-0000-0000000000a2', %L::jsonb, false, null, 'not-the-preview')$f$, public.t_px()::text),
+  '22023', null, 'import_plan: an apply with a fingerprint that does not match is refused');
+insert into public.t_fp select 'before', public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint';
+update public.payment_requests set title = 'R1 renamed by hand' where plan_key = 'r1' and project_id = '00000000-0000-0000-0000-0000000000a2';
+select throws_ok(
+  format($f$select public.import_plan('00000000-0000-0000-0000-0000000000a2', %L::jsonb, false, null, %L)$f$,
+    public.t_px()::text, (select fp from public.t_fp where name = 'before')),
+  '22023', null, 'import_plan: an apply after the project changed since the preview is refused');
+select isnt(
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint',
+  (select fp from public.t_fp where name = 'before'), 'import_plan: the change shows up as a new fingerprint');
+select is(
+  public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), false, null,
+    public.import_plan('00000000-0000-0000-0000-0000000000a2', public.t_px(), true) ->> 'fingerprint') ->> 'applied',
+  'true', 'import_plan: an apply with the current fingerprint goes through');
 
 select * from finish();
 rollback;
