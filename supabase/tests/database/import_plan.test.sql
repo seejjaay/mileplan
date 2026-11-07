@@ -1,5 +1,5 @@
 begin;
-select plan(84);
+select plan(88);
 
 -- Fixtures (as postgres) ---------------------------------------------------------------------------------
 -- PS: an empty setup project.  PX: an active project that already has keyed rows and payments.
@@ -43,6 +43,11 @@ insert into public.payment_requests (project_id, milestone_id, title, amount, du
   ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000e4', 'Q3', 100, '2026-12-20', 'q3');
 insert into public.payments (project_id, amount, status) values
   ('00000000-0000-0000-0000-0000000000a5', 250, 'confirmed'); -- a legacy payment: no request
+insert into public.milestones (id, project_id, position, title, due_date, plan_key, status) values
+  ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000a5', 1, 'Z2', '2026-12-05', 'z2', 'in_progress'),
+  ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000a5', 2, 'Z3', '2026-12-10', 'z3', 'planned');
+insert into public.tasks (milestone_id, project_id, position, title, status) values
+  ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000a5', 1, 'Shipped', 'done');
 
 -- Plan builders (callable by the authenticated role; rolled back with the test).
 create function public.t_base() returns jsonb language sql as $$ select $j$
@@ -111,7 +116,10 @@ $j$::jsonb $$;
 create function public.t_pz() returns jsonb language sql as $$ select $j$
 { "schema_version": 1,
   "project": { "title": "PZ" },
-  "milestones": [ { "key": "z1", "title": "Z1", "due_date": "2026-12-01" } ] }
+  "milestones": [
+    { "key": "z1", "title": "Z1", "due_date": "2026-12-01" },
+    { "key": "z2", "title": "Z2", "due_date": "2026-12-05" },
+    { "key": "z3", "title": "Z3", "due_date": "2026-12-10" } ] }
 $j$::jsonb $$;
 create table public.t_fp (name text primary key, fp text);
 grant select, insert on public.t_fp to authenticated;
@@ -425,6 +433,17 @@ select ok(
   not (public.import_plan('00000000-0000-0000-0000-0000000000a4', jsonb_set(public.t_py(), '{milestones,0,tasks}', '["Review"]'), true) -> 'milestones' -> 'changed'
     @> '[{"key":"y1"}]'),
   'import_plan: hand-added duplicate tasks are not a reorder');
+
+-- ----------------------------------------------------------------- work in progress is never deleted (PZ)
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a5', public.t_pz() #- '{milestones,1}', true) -> 'errors' -> 0 ->> 'path',
+  'milestones.z2', 'import_plan: removing a milestone that is in progress is blocked');
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a5', public.t_pz() #- '{milestones,2}', true) -> 'errors' -> 0 ->> 'path',
+  'milestones.z3', 'import_plan: removing a milestone with a done task is blocked');
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a5', jsonb_set(public.t_pz(), '{milestones,2,tasks}', '["Renamed"]'), true) -> 'errors' -> 0,
+  '{"path":"milestones[2].tasks","message":"\"Shipped\" is done, so it can''t be removed: keep it in the plan"}'::jsonb,
+  'import_plan: dropping a done task is blocked');
+select is(public.import_plan('00000000-0000-0000-0000-0000000000a5', jsonb_set(public.t_pz(), '{milestones,2,tasks}', '["Shipped", "Polish"]'), true) ->> 'valid',
+  'true', 'import_plan: keeping a done task by title and adding others is fine');
 
 select * from finish();
 rollback;

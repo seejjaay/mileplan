@@ -467,7 +467,8 @@ begin
     loop
       -- Removing a milestone deletes its reviews and tasks: never do that to work the client has seen or paid for.
       v_why := case
-        when v_r.status in ('in_review', 'approved', 'paid') then format('it is %s', replace(v_r.status::text, '_', ' '))
+        when v_r.status in ('in_progress', 'in_review', 'approved', 'paid') then format('it is %s', replace(v_r.status::text, '_', ' '))
+        when exists (select 1 from public.tasks where milestone_id = v_r.id and status = 'done') then 'it has done tasks'
         when exists (select 1 from public.milestone_reviews where milestone_id = v_r.id) then 'it has client reviews'
         when exists (select 1 from public.payments where milestone_id = v_r.id and status = 'confirmed') then 'it has confirmed payments'
       end;
@@ -512,6 +513,20 @@ begin
     loop
       v_errs := v_errs || public.plan_err(format('milestones[%s].amount', v_r.i),
         format('is below the %s already confirmed', v_r.total));
+    end loop;
+
+    -- Tasks match by title, so a dropped or renamed title deletes the task: never a done one.
+    for v_r in
+      select e.ord - 1 as i, t.title
+      from jsonb_array_elements(v_ms) with ordinality e(v, ord)
+      join public.milestones m on m.project_id = p_project_id and m.plan_key = e.v ->> 'key'
+      join public.tasks t on t.milestone_id = m.id and t.status = 'done'
+      where e.v ? 'tasks'
+        and btrim(t.title) <> all (array(select btrim(x) from jsonb_array_elements_text(e.v -> 'tasks') x))
+      order by e.ord, t.position
+    loop
+      v_errs := v_errs || public.plan_err(format('milestones[%s].tasks', v_r.i),
+        format('"%s" is done, so it can''t be removed: keep it in the plan', v_r.title));
     end loop;
   end if;
 

@@ -265,7 +265,8 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   1. Validates the shape and collects every error as `{path, message}` (for example `milestones[2].due_date` / `is before milestones[1].due_date`).
   2. Checks the project's state. These are errors too, so a preview shows them before anything is written:
      - the project is closed;
-     - a keyed milestone would be removed but is in review, approved or paid, has client reviews, or has confirmed payments (removing it would delete that history);
+     - a keyed milestone would be removed but is in progress, in review, approved or paid, has a done task, has client reviews, or has confirmed payments (removing it would delete that history);
+     - a done task would be removed because the plan drops or renames its title (keep the title in the plan, or delete the task by hand);
      - a keyed request would be removed but has any payment submission, rejected ones included, since a rejection keeps the proof and the note (manual delete still cascades with its warning; import never does);
      - a request's or a milestone's amount would drop below what's already confirmed against it;
      - the currency would change once the project has payment requests or payments;
