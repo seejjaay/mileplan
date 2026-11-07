@@ -77,6 +77,26 @@ describe('MessageItem', () => {
     expect(signedUrl).toHaveBeenCalledWith('attachments', 'p1/abc-wire.png', 'wire.png')
   })
 
+  it('lets a long unbroken attachment name wrap inside the bubble', () => {
+    const name = 'x'.repeat(200) + '.png'
+    setup(msg({ attachments: [{ path: 'p1/abc-long.png', name, size: 2048, mime: 'image/png' }] }), false)
+    const chip = screen.getByRole('button', { name: new RegExp(name) })
+    expect(chip).toHaveClass('max-w-full', '[overflow-wrap:anywhere]')
+    expect(chip.closest('li')).toHaveClass('min-w-0')
+  })
+
+  it('ignores Esc and Cancel while a save is in flight', async () => {
+    vi.mocked(editMessage).mockReturnValue(new Promise(() => {}))
+    const { user } = setup(msg())
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.type(screen.getByRole('textbox', { name: 'Message' }), '!')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Hello there!')
+    expect(editMessage).toHaveBeenCalledTimes(1)
+  })
+
   it('offers Edit on own messages until 15 minutes after creation', async () => {
     setup(msg())
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()

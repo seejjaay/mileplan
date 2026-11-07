@@ -79,6 +79,7 @@ export function MessageItem({ message, own, onEdited, senderName }: Props) {
     setEditing(true)
   }
   function cancel() {
+    if (save.isPending) return
     refocusEdit.current = true
     setEditing(false)
   }
@@ -90,7 +91,7 @@ export function MessageItem({ message, own, onEdited, senderName }: Props) {
   }
   function onSubmit(e: FormEvent) {
     e.preventDefault()
-    if (canSave) save.mutate()
+    if (canSave && !save.isPending) save.mutate()
   }
 
   const trimmed = draft.trim()
@@ -120,7 +121,7 @@ export function MessageItem({ message, own, onEdited, senderName }: Props) {
               <Button type="submit" loading={save.isPending} disabled={!canSave}>
                 Save
               </Button>
-              <Button variant="secondary" onClick={cancel}>
+              <Button variant="secondary" disabled={save.isPending} onClick={cancel}>
                 Cancel
               </Button>
             </div>
@@ -141,8 +142,13 @@ export function MessageItem({ message, own, onEdited, senderName }: Props) {
         {message.attachments.length > 0 && (
           <ul className="flex flex-wrap gap-2">
             {message.attachments.map((a) => (
-              <li key={a.path}>
-                <Button variant="secondary" loading={open.isPending && open.variables?.path === a.path} onClick={() => open.mutate(a)}>
+              <li key={a.path} className="min-w-0 max-w-full">
+                <Button
+                  variant="secondary"
+                  className="max-w-full text-left [overflow-wrap:anywhere]"
+                  loading={open.isPending && open.variables?.path === a.path}
+                  onClick={() => open.mutate(a)}
+                >
                   {a.name} ({formatBytes(a.size)})
                 </Button>
               </li>
