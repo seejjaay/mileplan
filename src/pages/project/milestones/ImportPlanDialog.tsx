@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { applyPlan, planImportSummary, previewPlan, type PlanImportResult } from '../../../api/planImport'
 import { invalidateProject } from '../../../api/invalidate'
@@ -34,15 +34,24 @@ export function ImportPlanDialog({ projectId, projectStatus, currency, emptyProj
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [applyError, setApplyError] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  // Each pick or re-check gets a number; only the newest one's answer is shown, so a slow preview of an older
+  // file can never sit next to a newer plan (and the plan applied is always the one whose diff is on screen).
+  const latest = useRef(0)
 
   const preview = useMutation({
-    mutationFn: (p: unknown) => previewPlan(projectId, p),
-    onSuccess: setResult,
-    onError: (err) => setPreviewError(toUserMessage(err)),
+    mutationFn: (v: { plan: unknown; n: number }) => previewPlan(projectId, v.plan),
+    onSuccess: (res, v) => {
+      if (v.n !== latest.current) return
+      setPlan(v.plan)
+      setResult(res)
+    },
+    onError: (err, v) => {
+      if (v.n === latest.current) setPreviewError(toUserMessage(err))
+    },
   })
 
   const apply = useMutation({
-    mutationFn: () => applyPlan(projectId, plan, active ? reason.trim() || undefined : undefined),
+    mutationFn: () => applyPlan(projectId, plan, result?.fingerprint, active ? reason.trim() || undefined : undefined),
     onSuccess: (res) => {
       toast.success(planImportSummary(res).message)
       onClose()
@@ -56,14 +65,16 @@ export function ImportPlanDialog({ projectId, projectStatus, currency, emptyProj
   })
 
   function check(p: unknown) {
+    const n = ++latest.current
     setResult(null)
     setPreviewError(null)
     setApplyError(null)
-    preview.mutate(p)
+    preview.mutate({ plan: p, n })
   }
 
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const input = e.target
+    const n = ++latest.current
     const file = input.files?.[0]
     input.value = '' // so choosing the same path again, after fixing the file, still fires a change
     if (!file) return
@@ -74,12 +85,12 @@ export function ImportPlanDialog({ projectId, projectStatus, currency, emptyProj
     setApplyError(null)
     setPlan(null)
     const parsed = await parsePlanFile(file)
+    if (n !== latest.current) return // a newer file was chosen while this one was read
     if (!parsed.ok) {
       setParseError(parsed.message)
       return
     }
-    setPlan(parsed.plan)
-    preview.mutate(parsed.plan)
+    preview.mutate({ plan: parsed.plan, n })
   }
 
   const summary = result?.valid ? planImportSummary(result) : null

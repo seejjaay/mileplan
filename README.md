@@ -48,6 +48,6 @@ Claude runs the same function the app does, `import_plan(project_id, plan, dry_r
    ```
 
 2. **Show CJ the result.** `valid: false` lists every problem as `{ path, message }`. Otherwise show the diff: `milestones` and `payments` each have `added`, `changed` (with `[old, new]` per field), `removed` and `kept` (rows the plan doesn't name, which are left alone), plus `reordered`.
-3. **Apply only on CJ's OK.** The same block with `false` as the third argument, an optional reason as the fourth, and `commit` instead of `rollback`. On an active project the reason is shown to the client with each plan change.
+3. **Apply only on CJ's OK.** The same block with `false` as the third argument, an optional reason as the fourth, the dry run's `fingerprint` as the fifth, and `commit` instead of `rollback`. On an active project the reason is shown to the client with each plan change.
 
-An apply that is no longer valid, for example a client sent a proof for a payment the plan removes, raises `22023` with the first problem and writes nothing: run the dry run again.
+An apply that no longer matches its dry run raises `22023` and writes nothing: either the plan became invalid (a client sent a proof for a payment the plan removes) or the project changed since (the fingerprint differs). Run the dry run again and show CJ the new diff.

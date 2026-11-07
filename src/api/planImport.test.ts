@@ -12,6 +12,7 @@ const empty: PlanImportResult = {
   project: { changes: {} },
   milestones: { added: [], changed: [], removed: [], kept: [], reordered: false },
   payments: { added: [], changed: [], removed: [], kept: [] },
+  fingerprint: 'fp1',
 }
 const plan = { schema_version: 1 }
 
@@ -30,22 +31,28 @@ describe('previewPlan', () => {
 })
 
 describe('applyPlan', () => {
-  it('applies with the reason', async () => {
+  it('applies with the preview fingerprint and the reason', async () => {
     rpc.mockResolvedValue({ data: { ...empty, applied: true }, error: null })
-    await applyPlan('p1', plan, 'SOW revised')
-    expect(rpc).toHaveBeenCalledWith('import_plan', { p_project_id: 'p1', p_plan: plan, p_dry_run: false, p_reason: 'SOW revised' })
+    await applyPlan('p1', plan, 'fp1', 'SOW revised')
+    expect(rpc).toHaveBeenCalledWith('import_plan', {
+      p_project_id: 'p1',
+      p_plan: plan,
+      p_dry_run: false,
+      p_reason: 'SOW revised',
+      p_expected: 'fp1',
+    })
   })
 
   it('sends a null reason when none is given', async () => {
     rpc.mockResolvedValue({ data: { ...empty, applied: true }, error: null })
-    await applyPlan('p1', plan)
+    await applyPlan('p1', plan, 'fp1')
     expect(rpc.mock.calls[0][1].p_reason).toBeNull()
   })
 
   it('throws the RPC error (a refused apply)', async () => {
     const error = { code: '22023', message: 'payments.r3 "R3" can\'t be removed' }
     rpc.mockResolvedValue({ data: null, error })
-    await expect(applyPlan('p1', plan)).rejects.toBe(error)
+    await expect(applyPlan('p1', plan, 'fp1')).rejects.toBe(error)
   })
 })
 

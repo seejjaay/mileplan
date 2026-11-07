@@ -19,6 +19,7 @@ const empty: PlanImportResult = {
   project: { changes: {} },
   milestones: { added: [], changed: [], removed: [], kept: [], reordered: false },
   payments: { added: [], changed: [], removed: [], kept: [] },
+  fingerprint: 'fp1',
 }
 const withOneAdded: PlanImportResult = {
   ...empty,
@@ -100,7 +101,7 @@ describe('ImportPlanDialog', () => {
     await choose()
     await userEvent.type(await screen.findByLabelText('Reason for change (optional)'), 'SOW revised')
     await userEvent.click(screen.getByRole('button', { name: 'Apply changes' }))
-    await waitFor(() => expect(applyPlan).toHaveBeenCalledWith('p1', JSON.parse(planText), 'SOW revised'))
+    await waitFor(() => expect(applyPlan).toHaveBeenCalledWith('p1', JSON.parse(planText), 'fp1', 'SOW revised'))
     expect(await screen.findByText('Plan imported: 1 added, 0 changed, 0 removed')).toBeInTheDocument()
     expect(onClose).toHaveBeenCalled()
     const keys = vi.mocked(queryClient.invalidateQueries).mock.calls.map((c) => JSON.stringify(c[0]?.queryKey))
@@ -113,7 +114,7 @@ describe('ImportPlanDialog', () => {
     renderDialog('setup')
     await choose()
     await userEvent.click(await screen.findByRole('button', { name: 'Apply changes' }))
-    await waitFor(() => expect(applyPlan).toHaveBeenCalledWith('p1', JSON.parse(planText), undefined))
+    await waitFor(() => expect(applyPlan).toHaveBeenCalledWith('p1', JSON.parse(planText), 'fp1', undefined))
   })
 
   it('keeps the dialog open on a refused apply, shows why, and re-checks on "Check again"', async () => {
@@ -137,6 +138,23 @@ describe('ImportPlanDialog', () => {
     expect(applyPlan).toHaveBeenCalledTimes(1)
     finish({ ...withOneAdded, applied: true })
     await waitFor(() => expect(onClose).toHaveBeenCalled())
+  })
+
+  it('shows and applies only the latest file when previews come back out of order', async () => {
+    let finishA: (r: PlanImportResult) => void = () => {}
+    vi.mocked(previewPlan)
+      .mockReturnValueOnce(new Promise<PlanImportResult>((resolve) => (finishA = resolve)))
+      .mockResolvedValueOnce({ ...withOneAdded, fingerprint: 'fp-b' })
+    renderDialog()
+    await choose('{"schema_version":1,"from":"a"}')
+    await choose(planText)
+    const apply = await screen.findByRole('button', { name: 'Apply changes' })
+    finishA({ ...empty, fingerprint: 'fp-a' }) // the older file's answer arrives last: a no-op diff
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByText('Nothing to change')).not.toBeInTheDocument()
+    expect(apply).toBeEnabled()
+    await userEvent.click(apply)
+    await waitFor(() => expect(applyPlan).toHaveBeenCalledWith('p1', JSON.parse(planText), 'fp-b', undefined))
   })
 
   it('lets the same file be chosen again after fixing it', async () => {

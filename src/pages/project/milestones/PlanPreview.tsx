@@ -146,8 +146,8 @@ export function PlanPreview({ result, currency, tree }: Props) {
                     </ul>
                   </li>
                 ))}
-                {p.changed.map((x) => (
-                  <li key={`p-${x.key}`} className={rowClass}>
+                {p.changed.map((x, i) => (
+                  <li key={`p-${i}`} className={rowClass}>
                     <Kind>Payment</Kind>
                     <span className="font-medium">{x.title}</span>
                     <ul className="mt-1 flex flex-col gap-0.5 text-sm">

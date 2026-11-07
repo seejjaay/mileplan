@@ -265,12 +265,13 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   1. Validates the shape and collects every error as `{path, message}` (for example `milestones[2].due_date` / `is before milestones[1].due_date`).
   2. Checks the project's state. These are errors too, so a preview shows them before anything is written:
      - the project is closed;
-     - a keyed milestone would be removed but has confirmed payments;
-     - a keyed request would be removed but has a pending or confirmed payment (manual delete still cascades with its warning; import never does);
+     - a keyed milestone would be removed but is in review, approved or paid, has client reviews, or has confirmed payments (removing it would delete that history);
+     - a keyed request would be removed but has any payment submission, rejected ones included, since a rejection keeps the proof and the note (manual delete still cascades with its warning; import never does);
      - a request's amount would drop below what's already confirmed;
-     - the currency would change while the project has payment requests.
-  3. Returns the diff: project field changes, and added, changed, removed and kept milestones and requests, plus whether milestones are reordered. The shape is the same for a dry run and an apply.
-  4. If `dry_run` is false, applies everything in one transaction, after locking the project row. Any error rolls back all of it. An invalid apply raises `22023` with the first error (this is what stops a stale preview: a client sending a proof between preview and apply makes the apply refuse), and a closed project raises `MP001`.
+     - the currency would change once the project has payment requests or payments;
+     - the project would end before it starts, counting a stored date the plan leaves out.
+  3. Returns the diff: project field changes, and added, changed, removed and kept milestones and requests, plus whether milestones are reordered. A request that loses its milestone because the plan removes it is listed as changed, unkeyed ones included. A dry run also returns a `fingerprint` of the diff.
+  4. If `dry_run` is false, it locks the project row, re-runs the dry run, and applies everything in one transaction. Any error rolls back all of it. It refuses with `22023` if the plan is no longer valid (for example a client sent a proof between preview and apply) or if the diff's fingerprint no longer matches the one the preview returned (anything else changed). A closed project raises `MP001`. The apply returns the diff as previewed.
 - **Activity.** The reason is shared by every change. On an active project, milestone and request changes become plan changes the client acknowledges from the existing banner in one click. A setup import logs none. Re-importing an identical plan changes nothing and logs nothing.
 - **Through Claude:** Claude runs the same function over SQL: first a dry run, then shows CJ the diff, then applies only on CJ's OK.
 

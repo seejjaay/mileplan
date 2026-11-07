@@ -14,7 +14,7 @@ export type ChangedMilestone = {
   tasks: { added: string[]; removed: string[]; reordered: boolean }
 }
 export type AddedPayment = { key: string; title: string; amount: number; due_date: string; milestone?: string | null }
-export type ChangedPayment = { key: string; title: string; changes: FieldChanges }
+export type ChangedPayment = { key: string | null; title: string; changes: FieldChanges }
 export type KeyedRow = { key: string; title: string }
 export type KeptRow = { title: string }
 
@@ -25,15 +25,21 @@ export type PlanImportResult = {
   errors: PlanError[]
   project: { changes: FieldChanges }
   milestones: { added: AddedMilestone[]; changed: ChangedMilestone[]; removed: KeyedRow[]; kept: KeptRow[]; reordered: boolean }
+  /** A request with `key: null` is an unkeyed one the plan doesn't name but still changes (its milestone is removed). */
   payments: { added: AddedPayment[]; changed: ChangedPayment[]; removed: KeyedRow[]; kept: KeptRow[] }
+  /** Identifies this exact diff; the apply sends it back and is refused if the project changed since. */
+  fingerprint?: string
 }
 
-async function run(projectId: string, plan: unknown, dryRun: boolean, reason: string | null): Promise<PlanImportResult> {
+type RunArgs = { dryRun: boolean; reason?: string | null; expected?: string | null }
+
+async function run(projectId: string, plan: unknown, { dryRun, reason = null, expected }: RunArgs): Promise<PlanImportResult> {
   const { data, error } = await supabase.rpc('import_plan', {
     p_project_id: projectId,
     p_plan: plan,
     p_dry_run: dryRun,
     p_reason: reason,
+    ...(dryRun ? {} : { p_expected: expected ?? null }),
   })
   if (error) throw error
   return data as PlanImportResult
@@ -41,12 +47,15 @@ async function run(projectId: string, plan: unknown, dryRun: boolean, reason: st
 
 /** A dry run: validates and returns the diff, never writes. */
 export function previewPlan(projectId: string, plan: unknown): Promise<PlanImportResult> {
-  return run(projectId, plan, true, null)
+  return run(projectId, plan, { dryRun: true })
 }
 
-/** Applies in one transaction. Throws if the project changed since the preview (22023) or is closed (MP001). */
-export function applyPlan(projectId: string, plan: unknown, reason?: string): Promise<PlanImportResult> {
-  return run(projectId, plan, false, reason ?? null)
+/**
+ * Applies in one transaction, exactly as previewed: `fingerprint` comes from previewPlan, and the server refuses
+ * with 22023 if the project changed since (or the plan is no longer valid), and with MP001 if it was closed.
+ */
+export function applyPlan(projectId: string, plan: unknown, fingerprint: string | undefined, reason?: string): Promise<PlanImportResult> {
+  return run(projectId, plan, { dryRun: false, reason: reason ?? null, expected: fingerprint })
 }
 
 export type PlanImportSummary = { added: number; changed: number; removed: number; isNoop: boolean; message: string }
