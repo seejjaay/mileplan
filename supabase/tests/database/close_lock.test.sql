@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(25);
 
 -- Fixtures (as postgres)
 insert into public.projects (id, title, status, activated_at) values
@@ -64,6 +64,16 @@ select tests.authenticate_as(tests.get_user('ana@client-a.test'));
 select lives_ok(
   format($f$insert into public.messages (project_id, sender_id, body) values ('00000000-0000-0000-0000-0000000000a1', %L, 'still there')$f$, tests.get_user('ana@client-a.test')),
   'lock: message allowed 10 days after close');
+select tests.clear_auth();
+update public.projects set closed_at = now() - interval '29 days' where id = '00000000-0000-0000-0000-0000000000a1';
+select tests.authenticate_as(tests.get_user('ana@client-a.test'));
+select lives_ok(
+  format($f$insert into public.messages (project_id, sender_id, body) values ('00000000-0000-0000-0000-0000000000a1', %L, 'last week')$f$, tests.get_user('ana@client-a.test')),
+  'lock: message allowed 29 days after close');
+update public.messages set body = 'last week, edited' where body = 'last week';
+select ok(
+  (select edited_at is not null from public.messages where body = 'last week, edited'),
+  'lock: the trigger still sets edited_at 29 days after close');
 select tests.clear_auth();
 update public.projects set closed_at = now() - interval '31 days' where id = '00000000-0000-0000-0000-0000000000a1';
 select tests.authenticate_as(tests.get_user('ana@client-a.test'));

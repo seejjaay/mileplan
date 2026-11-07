@@ -144,8 +144,8 @@ All tables have `id uuid pk default gen_random_uuid()` and `created_at timestamp
   - `submitted_by`, `reviewed_by`, `reviewed_at`, `review_note`
 - **`messages`**
   - `project_id`, `sender_id`, `body`
-  - `attachments jsonb`
-  - `edited_at`
+  - `attachments jsonb`: at most 5 items, each exactly `path` (under `<project_id>/`, no `..`), `name` (1-200 chars), `size` (1-10485760) and `mime`; fixed after insert
+  - `edited_at`: set by trigger only, when `body` changes; `body` has at least one non-whitespace character and at most 4000, and is the only column a client can update
 - **`message_reads`**
   - `project_id`, `user_id` (pk is the pair)
   - `last_read_at`
