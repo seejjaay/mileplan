@@ -65,7 +65,6 @@ export function useProjectRealtime(projectId: string) {
     let active = true
     let hasConnected = false
     let dropped = false
-    let resyncOnStream = false
     let timer: ReturnType<typeof setTimeout> | undefined
 
     const markDown = () => {
@@ -75,10 +74,7 @@ export function useProjectRealtime(projectId: string) {
       timer ??= setTimeout(() => active && setReconnecting(true), RECONNECT_PILL_DELAY_MS)
     }
     const markUp = () => {
-      if (dropped) {
-        invalidateAll(queryClient, projectId) // anything missed while offline
-        resyncOnStream = true
-      }
+      if (dropped) invalidateAll(queryClient, projectId) // anything missed while offline
       dropped = false
       hasConnected = true
       clearTimeout(timer)
@@ -116,11 +112,11 @@ export function useProjectRealtime(projectId: string) {
     for (const [table, filter] of tables) {
       channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, onChange(table))
     }
-    // SUBSCRIBED only means the channel rejoined; the server starts streaming changes later (seconds, on a cold
-    // Realtime) and says so with this message. Changes in between are never delivered, so refetch once more.
+    // SUBSCRIBED only means the channel joined; the server starts streaming changes later (seconds, on a cold
+    // Realtime) and says so with this message, once per join. Changes in between are never delivered, so refetch
+    // what's on screen: on first open (the page's initial fetch may predate the stream) and after every rejoin.
     channel = channel.on('system', {}, (payload: { extension?: string; status?: string }) => {
-      if (!active || payload.extension !== 'postgres_changes' || payload.status !== 'ok' || !resyncOnStream) return
-      resyncOnStream = false
+      if (!active || payload.extension !== 'postgres_changes' || payload.status !== 'ok') return
       invalidateAll(queryClient, projectId)
     })
     channel.subscribe((status: string) => {

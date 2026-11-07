@@ -110,19 +110,27 @@ describe('useProjectRealtime', () => {
     }
   })
 
-  it('refetches again once the server is streaming after a rejoin, since changes in between are never delivered', () => {
+  it('refetches when the server starts streaming, on first open and after a rejoin, since changes before that are never delivered', () => {
     const spy = vi.spyOn(queryClient, 'invalidateQueries')
     renderHook(() => useProjectRealtime('p1'), { wrapper })
     status('SUBSCRIBED')
+    expect(spy).not.toHaveBeenCalled() // joined, but not streaming yet
     streaming()
-    expect(spy).not.toHaveBeenCalled() // first connect: nothing was missed
+    expect(keysInvalidated(spy)).toContain(JSON.stringify(qk.milestones('p1')))
     status('CHANNEL_ERROR')
     status('SUBSCRIBED')
     spy.mockClear()
     streaming()
     expect(keysInvalidated(spy)).toContain(JSON.stringify(qk.milestones('p1')))
-    spy.mockClear()
-    streaming() // once per rejoin, not on every system message
+  })
+
+  it('ignores system messages that are not the postgres_changes ok', () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    renderHook(() => useProjectRealtime('p1'), { wrapper })
+    act(() => handlers.filter((h) => h.type === 'system').forEach((h) => {
+      h.cb({ extension: 'system', status: 'ok', message: 'Replication connection established' })
+      h.cb({ extension: 'postgres_changes', status: 'error', message: 'failed' })
+    }))
     expect(spy).not.toHaveBeenCalled()
   })
 
