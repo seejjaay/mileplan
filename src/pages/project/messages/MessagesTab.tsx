@@ -196,6 +196,7 @@ export default function MessagesTab({ project }: { project: ProjectSummary }) {
 
   return (
     <div className="flex h-[calc(100dvh-14rem)] min-h-80 flex-col gap-3">
+      <h2 className="sr-only">Messages</h2>
       <div className="relative min-h-0 flex-1">
         <div ref={scroller} data-testid="thread-scroll" className="flex h-full flex-col gap-3 overflow-y-auto pr-1">
           {body}

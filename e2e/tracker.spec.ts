@@ -174,7 +174,7 @@ test.describe('phone width', () => {
     await expectNoHorizontalScroll(admin)
     await expect(admin.getByRole('navigation', { name: 'Project sections' })).toHaveCSS('overflow-x', 'auto')
 
-    for (const tab of ['Milestones', 'Updates', 'Files', 'Timeline']) {
+    for (const tab of ['Milestones', 'Updates', 'Files', 'Messages', 'Timeline']) {
       await admin.getByRole('link', { name: tab, exact: true }).click()
       await expect(admin.getByRole('heading', { name: tab, level: 2 })).toBeVisible()
       await expectNoHorizontalScroll(admin)
