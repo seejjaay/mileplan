@@ -337,7 +337,7 @@ Each template is Markdown with `{{placeholders}}` and exports to PDF or DOCX. Th
   4. Admin moves M1 to in_review, and the client approves it.
   5. Admin schedules a payment against M1. The client uploads a proof, and the admin confirms it. The request shows Paid and the Overview totals update.
   6. Admin changes the M2 due date with a reason. The client sees it live and acknowledges it, and the admin sees the acknowledgement.
-  7. Messages are exchanged live.
+  7. Messages are exchanged live (`e2e/messages.spec.ts`).
   8. The timeline shows every step.
 - **Manual:** a pass at 375px wide, a keyboard-only pass, and a dark mode pass.
 

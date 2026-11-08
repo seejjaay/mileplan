@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(32);
 
 do $$ begin perform tests.create_user('cara@client-c.test'); end $$;
 
@@ -87,6 +87,12 @@ select ok(
   'messages: update body = body leaves edited_at alone');
 select throws_ok($$update public.messages set edited_at = now() where id = '00000000-0000-0000-0000-0000000000d2'$$,
   '42501', null, 'messages: a client cannot write edited_at');
+select throws_ok(
+  format($f$insert into public.messages (project_id, sender_id, body, created_at) values ('00000000-0000-0000-0000-0000000000a1', %L, 'from the future', '2099-01-01')$f$, tests.get_user('ana@client-a.test')),
+  '42501', null, 'messages: a client cannot choose created_at (it gates the edit window and unread counts)');
+select throws_ok(
+  format($f$insert into public.messages (project_id, sender_id, body, edited_at) values ('00000000-0000-0000-0000-0000000000a1', %L, 'fake edit', now())$f$, tests.get_user('ana@client-a.test')),
+  '42501', null, 'messages: a client cannot set edited_at on insert');
 select throws_ok($$update public.messages set attachments = '[]' where id = '00000000-0000-0000-0000-0000000000d1'$$,
   '42501', null, 'messages: attachments cannot change after insert');
 

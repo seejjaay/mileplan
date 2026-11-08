@@ -79,6 +79,11 @@ create trigger messages_set_edited_at before update on public.messages
 revoke update on public.messages from authenticated;
 grant update (body) on public.messages to authenticated;
 
+-- created_at and edited_at belong to the server on insert too. A client-chosen created_at would pin a message as
+-- newest, keep it unread for the other side forever, and (in the future) keep the 15-minute edit window open.
+revoke insert on public.messages from authenticated;
+grant insert (id, project_id, sender_id, body, attachments) on public.messages to authenticated;
+
 -- 4. Read state. security INVOKER: message_reads and messages RLS apply, can_see is the gate.
 create function public.mark_messages_read(p_project_id uuid) returns void
 language plpgsql set search_path = '' as $$

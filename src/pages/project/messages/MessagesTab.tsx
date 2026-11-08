@@ -71,7 +71,13 @@ export default function MessagesTab({ project }: { project: ProjectSummary }) {
   // readId is the newest message we have marked read; it stays undefined until the first mark (opening the tab).
   const [readId, setReadId] = useState<string | undefined>(undefined)
   const newest = messages[messages.length - 1]
-  const needsRead = query.isSuccess && !!newest && newest.id !== readId && newest.sender_id !== me
+  // Anything from the other side after the last read point, not just the newest: my own reply can land on top of an
+  // unread message I never scrolled down to, and that message still has to be marked read.
+  const needsRead = useMemo(() => {
+    if (!query.isSuccess) return false
+    const from = readId === undefined ? 0 : messages.findIndex((m) => m.id === readId) + 1
+    return messages.slice(from).some((m) => m.sender_id !== me)
+  }, [query.isSuccess, messages, readId, me])
 
   const markNow = useCallback(() => {
     setReadId(latestId)

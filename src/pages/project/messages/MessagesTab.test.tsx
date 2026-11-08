@@ -203,6 +203,35 @@ describe('MessagesTab', () => {
     expect(markRead).toHaveBeenCalledTimes(2)
   })
 
+  it('marks read when my own reply lands after an unread message from the other side', async () => {
+    vi.mocked(listMessages).mockResolvedValue([msg(1)])
+    renderTab()
+    await waitFor(() => expect(markRead).toHaveBeenCalledTimes(1))
+    const g = geometry(0)
+    g.scrollTo(0)
+    pushMessage(msg(2)) // theirs, while I'm scrolled up
+    await screen.findByRole('button', { name: PILL })
+    vi.useFakeTimers()
+    pushMessage(msg(3, { sender_id: 'me' })) // my reply
+    g.scrollTo(580) // sending scrolls me to the bottom
+    await act(async () => void (await vi.advanceTimersByTimeAsync(1000)))
+    expect(markRead).toHaveBeenCalledTimes(2)
+  })
+
+  it('still marks new messages read after a failed Load earlier', async () => {
+    const page = Array.from({ length: 50 }, (_, i) => msg(100 - i))
+    vi.mocked(listMessages).mockResolvedValueOnce(page).mockRejectedValueOnce(new Error('offline'))
+    renderTab()
+    await waitFor(() => expect(markRead).toHaveBeenCalledTimes(1))
+    await userEvent.click(screen.getByRole('button', { name: 'Load earlier' }))
+    await screen.findByRole('alert')
+    vi.useFakeTimers()
+    pushMessage(msg(101))
+    await act(async () => void (await vi.advanceTimersByTimeAsync(0)))
+    await act(async () => void (await vi.advanceTimersByTimeAsync(1000)))
+    expect(markRead).toHaveBeenCalledTimes(2)
+  })
+
   it('notes the remaining window on a closed project and replaces the composer after it', async () => {
     vi.mocked(listMessages).mockResolvedValue([])
     const recent = new Date(Date.now() - 2 * 86400000).toISOString()
