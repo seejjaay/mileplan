@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
@@ -10,6 +10,7 @@ import ProjectPage from './ProjectPage'
 vi.mock('../../api/planChanges', async (orig) => ({ ...(await orig<typeof import('../../api/planChanges')>()), listPlanChanges: vi.fn(async () => [{ id: 'a', project_id: 'p1', actor_id: 'x', entity: 'milestone', entity_id: 'm1', action: 'updated', changes: { due_date: ['2026-12-01', '2026-12-15'] }, reason: null, plan_change: true, created_at: '2026-11-05T08:00:00Z', actor_name: null, acks: [] }]), acknowledge: vi.fn() }))
 vi.mock('./useProjectMarkers', () => ({ useProjectMarkers: () => ({ milestones: new Set(['m1']), tabs: new Set(['updates', 'milestones']) }) }))
 vi.mock('../../realtime/useProjectRealtime', () => ({ useProjectRealtime: () => ({ connected: true, reconnecting: false, lastChange: null }) }))
+vi.mock('../../api/messages', async (orig) => ({ ...(await orig<typeof import('../../api/messages')>()), unreadCounts: vi.fn(async () => ({ p1: 2 })), listMessages: vi.fn(async () => []), markRead: vi.fn(async () => {}) }))
 vi.mock('../../api/projects', async (orig) => ({ ...(await orig<typeof import('../../api/projects')>()), getProject: vi.fn() }))
 
 const project: ProjectSummary = {
@@ -102,6 +103,28 @@ describe('ProjectPage', () => {
     expect(await screen.findByRole('link', { name: 'Updates (updated)' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Milestones' })).toHaveAttribute('aria-current', 'page') // no "(updated)" on the current tab
     expect(screen.getByRole('link', { name: 'Files' })).toBeInTheDocument()
+  })
+})
+
+describe('ProjectPage messages tab', () => {
+  it('sits between Payments and Timeline', async () => {
+    vi.mocked(getProject).mockResolvedValue(project)
+    renderAt('/projects/p1')
+    await screen.findByRole('heading', { name: 'Website rebuild', level: 1 })
+    const names = within(screen.getByRole('navigation', { name: 'Project sections' })).getAllByRole('link').map((a) => a.textContent)
+    const i = names.findIndex((n) => n?.startsWith('Messages'))
+    expect(names[i - 1]).toBe('Payments')
+    expect(names[i + 1]).toBe('Timeline')
+  })
+
+  it('shows the unread count on the tab, but not while reading the thread', async () => {
+    vi.mocked(getProject).mockResolvedValue(project)
+    renderAt('/projects/p1')
+    expect(await screen.findByLabelText('2 unread')).toHaveTextContent('2')
+    cleanup()
+    renderAt('/projects/p1/messages')
+    await screen.findByRole('heading', { name: 'Website rebuild', level: 1 })
+    expect(screen.queryByLabelText('2 unread')).not.toBeInTheDocument()
   })
 })
 

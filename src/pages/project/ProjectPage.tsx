@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, type ComponentType } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useUnreadCounts } from '../../api/useUnreadCounts'
 import { getProject, type ProjectSummary } from '../../api/projects'
 import { qk } from '../../api/keys'
 import { ReconnectingPill } from '../../realtime/ReconnectingPill'
@@ -10,6 +11,7 @@ import { useTitle } from '../../lib/useTitle'
 import { Button } from '../../ui/Button'
 import { ProgressBar } from '../../ui/ProgressBar'
 import { StatusChip } from '../../ui/StatusChip'
+import { UnreadBadge } from '../../ui/UnreadBadge'
 import { ChangeMarkersContext } from './changeMarkers'
 import { ClosedBanner } from './ClosedBanner'
 import { PlanChangeBanner } from './PlanChangeBanner'
@@ -24,6 +26,7 @@ const PANELS: Record<TabKey, React.LazyExoticComponent<ComponentType<{ project: 
   updates: lazy(() => import('./UpdatesTab')),
   files: lazy(() => import('./FilesTab')),
   payments: lazy(() => import('./payments/PaymentsTab')),
+  messages: lazy(() => import('./messages/MessagesTab')),
   timeline: lazy(() => import('./TimelineTab')),
 }
 
@@ -38,6 +41,7 @@ export default function ProjectPage() {
   const project = query.data
   const { reconnecting, lastChange } = useProjectRealtime(id)
   const visit = useProjectMarkers(id)
+  const unread = useUnreadCounts()[id] ?? 0
   const markers = useMemo<ChangeMarkers>(
     () => ({ ...visit, tick: lastChange ? { id: lastChange.id, at: lastChange.at } : null }),
     [visit, lastChange],
@@ -96,6 +100,11 @@ export default function ProjectPage() {
                 {updated && (
                   <span aria-hidden="true" className="ml-1 text-[var(--accent)]">
                     •
+                  </span>
+                )}
+                {t.key === 'messages' && tab !== 'messages' && (
+                  <span className="ml-1.5">
+                    <UnreadBadge count={unread} />
                   </span>
                 )}
               </Link>

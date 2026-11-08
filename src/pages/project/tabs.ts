@@ -4,6 +4,7 @@ export const TABS = [
   { key: 'updates', label: 'Updates' },
   { key: 'files', label: 'Files' },
   { key: 'payments', label: 'Payments' },
+  { key: 'messages', label: 'Messages' },
   { key: 'timeline', label: 'Timeline' },
 ] as const
 
