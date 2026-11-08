@@ -5,7 +5,8 @@ export function messageWindow(
   p: { status: string; closed_at: string | null },
   now: Date,
 ): { open: boolean; until: Date | null } {
-  if (p.status === 'setup' || p.status === 'active' || !p.closed_at) return { open: true, until: null }
+  if (p.status === 'setup' || p.status === 'active') return { open: true, until: null }
+  if (!p.closed_at) return { open: false, until: null } // the database treats a finished project with no close date as closed
   const until = new Date(new Date(p.closed_at).getTime() + POST_CLOSE_MS)
   return { open: now.getTime() < until.getTime(), until }
 }

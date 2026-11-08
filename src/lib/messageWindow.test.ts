@@ -24,6 +24,10 @@ describe('messageWindow', () => {
     expect(messageWindow({ status: 'terminated', closed_at: closed.toISOString() }, now).open).toBe(false)
   })
 
+  it('is shut for a finished project with no close date, as the database treats it', () => {
+    expect(messageWindow({ status: 'completed', closed_at: null }, now)).toEqual({ open: false, until: null })
+  })
+
   it('is shut 31 days after close', () => {
     const closed = new Date(now.getTime() - 31 * DAY)
     expect(messageWindow({ status: 'completed', closed_at: closed.toISOString() }, now).open).toBe(false)

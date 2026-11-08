@@ -220,7 +220,7 @@ export default function MessagesTab({ project }: { project: ProjectSummary }) {
         profile && <Composer projectId={project.id} senderId={profile.id} onSent={onSent} />
       ) : (
         <p className="border-t border-[var(--border)] pt-3 text-sm text-[var(--muted)]">
-          This thread closed on {win.until ? dMMM(win.until) : ''}
+          {win.until ? `This thread closed on ${dMMM(win.until)}` : 'This thread is closed'}
         </p>
       )}
     </div>

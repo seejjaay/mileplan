@@ -89,7 +89,7 @@ test('two live browsers: send, unread, reply, edit, pill, keyboard', async ({ br
 
   // 4. Scrolled up on the admin side: a new message shows the pill instead of moving the view
   await admin.getByTestId('thread-scroll').evaluate((el) => (el.scrollTop = 0))
-  await expect(admin.getByRole('button', { name: 'Load earlier' })).toBeVisible()
+  await expect(admin.getByText('Earlier message 1', { exact: true })).toBeVisible() // reaching the top loads the older page
   await fay.getByLabel('Message', { exact: true }).fill('One more thing')
   await fay.getByRole('button', { name: 'Send', exact: true }).click()
   await expect(admin.getByRole('button', { name: 'New messages ↓' })).toBeVisible()
