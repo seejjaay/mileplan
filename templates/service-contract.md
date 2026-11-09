@@ -49,7 +49,7 @@ The deposit is non-refundable, except when the Developer misses the Final Deadli
 
 ## 7. Revisions
 
-{{terms.revisionRounds}} rounds of revisions per milestone are included, within the scope of the Work. A round is one set of changes sent together. Each extra round costs {{terms.extraRound}}, and is agreed in writing before work starts (chat or email is enough).
+{{terms.revisionRounds}} rounds of revisions are included for the whole project, across all milestones, within the scope of the Work. The Project Agreement states the number for this project. It is never fewer than 2. A round is one set of changes sent together. Each extra round costs {{terms.extraRound}}, and is agreed in writing before work starts (chat or email is enough).
 
 ## 8. Acceptance
 

@@ -86,3 +86,21 @@ describe('shared data files', () => {
     expect(loadDeveloper().name).toBe('CJ Nicko Rosales')
   })
 })
+
+describe('revision rounds', () => {
+  it('rejects fewer than 2 rounds, the minimum every project gets', () => {
+    const dir = copyFixture()
+    editJson(dir, 'doc.json', (o) => {
+      o.revision_rounds = 1
+    })
+    expect(errorsOf(dir).some((e) => e.includes('doc.json') && e.includes('/revision_rounds'))).toBe(true)
+  })
+
+  it('accepts more than 2 rounds', () => {
+    const dir = copyFixture()
+    editJson(dir, 'doc.json', (o) => {
+      o.revision_rounds = 4
+    })
+    expect(errorsOf(dir)).toEqual([])
+  })
+})

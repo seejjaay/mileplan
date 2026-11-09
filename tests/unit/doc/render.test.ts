@@ -187,3 +187,16 @@ describe('review fixes', () => {
     expect(parseRequirements('1. Login\n2) Logout\n+ Plus\n* Star')).toEqual(['Login', 'Logout', 'Plus', 'Star'])
   })
 })
+
+describe('revision rounds for the whole project', () => {
+  it('contract counts rounds across the whole project, not per milestone', () => {
+    const md = renderDocument('contract', ctxOf(withDoc({ revision_rounds: 3 })))
+    expect(md).toContain('3 rounds of revisions are included for the whole project')
+    expect(md).not.toContain('per milestone')
+  })
+
+  it('agreement states the number, defaulting to the minimum of 2', () => {
+    expect(renderDocument('agreement', ctxOf(withDoc({ revision_rounds: 3 })))).toContain('Revision rounds included: 3')
+    expect(renderDocument('agreement', ctxOf())).toContain('Revision rounds included: 2')
+  })
+})

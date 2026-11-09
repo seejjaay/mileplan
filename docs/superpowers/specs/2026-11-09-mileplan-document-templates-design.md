@@ -61,7 +61,7 @@ The defaults are all four documents in both formats. Output goes to `clients/<sl
   - `source_code.multiplier`: a number in [1.5, 3]. Required. It prices the optional buyout line.
   - `dispute_city`: the city named for mediation and small claims.
   - `agreement_date`: optional, the date printed on the documents.
-  - Optional per-project overrides: `revision_rounds` (default 2), `warranty_days` (default 30), `acceptance_days` (default 7).
+  - Optional per-project overrides: `revision_rounds` (default 2, minimum 2, a total for the whole project), `warranty_days` (default 30), `acceptance_days` (default 7).
 - **Per-client `.md` files**: prose the templates include by name: `scope.md`, `requirements.md`, `users.md`, `nfr.md`, `constraints.md`, `assumptions.md`, `out-of-scope.md`, `glossary.md`. A missing file is an error.
 - **`templates/prices.json`**:
   - Packages, each with a key, a name, a "from" price and an inclusions list:
@@ -118,7 +118,7 @@ These terms are the same for every project. Sections, in order:
 4. **Additional features.** New features are taken on only after the project is completed and fully paid, under a separate agreement with its own payment.
 5. **Fees and payment.** Fees follow the Project Agreement's payment schedule. The deposit is due before work begins. The balance is due on completion, before handover of the deployed Work and any credentials. Payment is made by `payment_method`. Domains, hosting, app-store fees and other paid third-party services are paid by the Client at cost. Work outside this agreement is priced from `prices.json`.
 6. **Deposit, deadline and delays.** See 5.3.
-7. **Revisions.** `revision_rounds` rounds (default 2) per milestone, within scope. Each extra round costs PHP 800.00 and is agreed in writing before work starts.
+7. **Revisions.** `revision_rounds` rounds (default 2, never fewer than 2) for the whole project across all milestones, within scope. The Project Agreement states the number. Each extra round costs PHP 800.00 and is agreed in writing before work starts.
 8. **Acceptance.** Approving a milestone in MilePlan is acceptance. A milestone left in review with no client response for `acceptance_days` days (default 7) is deemed accepted.
 9. **Client responsibilities.** Provide content, access and decisions on time.
 10. **Ownership and license.**

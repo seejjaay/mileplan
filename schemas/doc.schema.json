@@ -59,7 +59,7 @@
     },
     "dispute_city": { "type": "string", "minLength": 1 },
     "agreement_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-    "revision_rounds": { "type": "integer", "minimum": 0, "default": 2 },
+    "revision_rounds": { "type": "integer", "minimum": 2, "default": 2, "description": "Revision rounds for the whole project, across all milestones. 2 is the minimum every project gets." },
     "warranty_days": { "type": "integer", "minimum": 0, "default": 30 },
     "acceptance_days": { "type": "integer", "minimum": 1, "default": 7 }
   }

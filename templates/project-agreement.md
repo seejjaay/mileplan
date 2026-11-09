@@ -29,6 +29,8 @@ Course: {{course}}
 - {{this}}
 {{/each}}
 
+Revision rounds included: {{terms.revisionRounds}}, for the whole project. Extra rounds cost {{terms.extraRound}} each, as set out in section 7 of the Service Agreement.
+
 ## 3. Fee breakdown
 
 | Item | Amount |
