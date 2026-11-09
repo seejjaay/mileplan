@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useNotificationsRealtime } from '../realtime/useNotificationsRealtime'
 import { useUnreadRealtime } from '../realtime/useUnreadRealtime'
 import { ErrorBoundary } from './ErrorBoundary'
+import { NotificationBell } from './NotificationBell'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-[var(--border)] text-[var(--text)]' : 'text-[var(--muted)]'}`
@@ -52,6 +53,7 @@ export function AppShell() {
             </NavLink>
           )}
         </nav>
+        <NotificationBell />
         <details className="relative">
           <summary className="cursor-pointer rounded-md px-3 py-2 text-sm font-medium">{profile?.full_name || 'Account'}</summary>
           <div className="absolute right-0 z-30 mt-1 flex min-w-40 flex-col rounded-md border border-[var(--border)] bg-[var(--surface)] p-1 shadow-md">
