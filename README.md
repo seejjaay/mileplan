@@ -54,7 +54,7 @@ An apply that no longer matches its dry run raises `22023` and writes nothing: e
 
 ## Client documents
 
-`npm run doc -- clients/<slug>` fills the four templates in `templates/` (service contract, project agreement, SRS, milestone plan) and writes them as PDF and DOCX to `clients/<slug>/out/`. Everything is Times New Roman: the exporter checks the fonts in both files and fails, writing nothing, if any other font shows up. Add `--only contract,agreement,srs,plan` or `--format pdf,docx` to narrow it down.
+`npm run doc -- clients/<slug>` fills the four templates in `templates/` (service contract, project agreement, SRS, milestone plan) and writes them as PDF and DOCX to `clients/<slug>/out/`. Everything is Times New Roman: the exporter checks the text for characters the font lacks (emoji, CJK, the peso sign) and the fonts embedded in both files, and fails, writing nothing, if anything else would show up. Add `--only contract,agreement,srs,plan` or `--format pdf,docx` to narrow it down.
 
 A client folder holds `plan.json` (the same file imported into MilePlan), `doc.json` (everything plan.json doesn't carry, see `schemas/doc.schema.json`) and eight prose files: `scope.md`, `requirements.md`, `users.md`, `nfr.md`, `constraints.md`, `assumptions.md`, `out-of-scope.md` and `glossary.md`. `clients/` is gitignored, so client details never reach GitHub. `scripts/doc/fixtures/acme/` is a sample client to copy from. Prices and add-ons live in `templates/prices.json`.
 

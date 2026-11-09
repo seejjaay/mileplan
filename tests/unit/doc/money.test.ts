@@ -209,3 +209,95 @@ describe('formatting', () => {
     vi.unstubAllEnvs()
   })
 })
+
+describe('plan rules shared with import_plan', () => {
+  const milestones = (c: ClientInput) => c.plan.milestones
+
+  it('rejects a multiplier with more than 2 decimals', () => {
+    const e = errorsOf(make({ doc: { source_code: { multiplier: 1.555 } } }))
+    expect(e.some((x) => x.includes('multiplier') && x.includes('2 decimals'))).toBe(true)
+  })
+
+  it('accepts 2-decimal multipliers such as 1.7 and 2.35', () => {
+    expect(errorsOf(make({ doc: { source_code: { multiplier: 1.7 } } }))).toEqual([])
+    expect(errorsOf(make({ doc: { source_code: { multiplier: 2.35 } } }))).toEqual([])
+  })
+
+  it('rejects duplicate payment keys', () => {
+    const c = make({
+      doc: { payment_plan: 'milestones' },
+      payments: [pay('a', 20000, '2026-11-16'), pay('a', 20000, '2027-01-29', 'build'), pay('final', 30000, '2027-02-26', 'launch')],
+    })
+    expect(errorsOf(c).some((e) => e.includes('payments[1].key') && e.includes('duplicates'))).toBe(true)
+  })
+
+  it('rejects duplicate milestone keys', () => {
+    const c = make()
+    milestones(c)[1].key = milestones(c)[0].key
+    expect(errorsOf(c).some((e) => e.includes('milestones[1].key') && e.includes('duplicates'))).toBe(true)
+  })
+
+  it('rejects a payment tied to a milestone that is not in the plan', () => {
+    const c = make({
+      doc: { payment_plan: 'milestones' },
+      payments: [pay('a', 20000, '2026-11-16'), pay('b', 20000, '2027-01-29', 'ghost'), pay('final', 30000, '2027-02-26', 'launch')],
+    })
+    expect(errorsOf(c).some((e) => e.includes('payments[1].milestone') && e.includes('ghost'))).toBe(true)
+  })
+
+  it('rejects milestone due dates that go backwards', () => {
+    const c = make()
+    milestones(c)[1].due_date = '2026-11-01'
+    expect(errorsOf(c).some((e) => e.includes('milestones[1].due_date') && e.includes('before'))).toBe(true)
+  })
+
+  it('rejects dates that are not real calendar dates', () => {
+    const c = make()
+    milestones(c)[0].due_date = '2026-02-30'
+    expect(errorsOf(c).some((e) => e.includes('milestones[0].due_date') && e.includes('real'))).toBe(true)
+    expect(errorsOf(make({ doc: { agreement_date: '2026-13-09' } })).some((e) => e.includes('agreement_date'))).toBe(true)
+  })
+
+  it('rejects amounts with more than 2 decimals', () => {
+    const c = make({
+      doc: { payment_plan: 'milestones', fees: [{ label: 'X', amount: 20000.001 }] },
+      payments: [pay('deposit', 10000.0005, '2026-11-16'), pay('final', 10000.0005, '2027-02-26', 'launch')],
+    })
+    expect(errorsOf(c).some((e) => e.includes('payments[0].amount') && e.includes('2 decimals'))).toBe(true)
+  })
+
+  it('rejects two source-code payments', () => {
+    const c = make({
+      payments: [
+        pay('deposit', 35000, '2026-11-16'),
+        pay('final', 35000, '2027-02-26', 'launch'),
+        pay('source-code', 105000, '2027-03-05'),
+        pay('source-code', 105000, '2027-03-06'),
+      ],
+    })
+    expect(errorsOf(c).some((e) => e.includes('source-code') && e.includes('once'))).toBe(true)
+  })
+
+  it('rejects a middle payment due after the last one', () => {
+    const c = make({
+      doc: { payment_plan: 'milestones' },
+      payments: [pay('a', 20000, '2026-11-16'), pay('b', 20000, '2027-03-30', 'build'), pay('final', 30000, '2027-02-26', 'launch')],
+    })
+    expect(errorsOf(c).some((e) => e.includes('payments[2].due_date') && e.includes('before'))).toBe(true)
+  })
+
+  it('rejects an end_date before start_date', () => {
+    expect(errorsOf(make({ project: { end_date: '2026-11-01' } })).some((e) => e.includes('end_date'))).toBe(true)
+  })
+
+  it('requires a project summary instead of printing a blank', () => {
+    const c = make()
+    delete c.plan.project.summary
+    expect(errorsOf(c)).toContain('plan.json: project.summary is required for documents')
+  })
+
+  it('formatDate throws on a date that does not exist', () => {
+    expect(() => formatDate('2026-02-30')).toThrow()
+    expect(() => formatDate('2026-13-09')).toThrow()
+  })
+})

@@ -30,15 +30,15 @@ New features are taken on only after the Work is completed and fully paid. They 
 
 The total fee for the Work is {{total}}, as set out in the Project Agreement. Payments follow the schedule in the Project Agreement.
 
-The first payment, {{deposit}}, is the deposit. It is due before work begins. Each later payment is due on its due date. The last payment is due when the Work is complete and ready for delivery. The Developer hands over the deployed Work and any access credentials only after the last payment is received.
+The first payment, {{deposit}}, is the deposit. It is due before work begins. Each later payment is due on its due date. The last project payment is due when the Work is complete and ready for delivery. The Developer hands over the deployed Work and any access credentials only after the last project payment is received. The optional source code buyout in section 11 is separate and does not delay that handover.
 
 Payment is made by {{paymentMethod}}. If a payment is more than 7 days late, the Developer may pause work until it is paid, and the time paused does not count against the Final Deadline.
 
 Domains, hosting, app-store fees and other paid third-party services are not part of the fee. The Client pays them at cost.
 
-## 6. Deposit, deadline and delays
+Work outside this Agreement is quoted separately, at the Developer’s current prices.
 
-The deadline starts counting once the deposit is received and the Client has sent the content and information needed to start.
+## 6. Deposit, deadline and delays
 
 The Client will answer questions and give feedback within 3 days. Each day the Developer is waiting on the Client for feedback, content, access or an approval moves the Final Deadline back by one day. The activity log and messages in MilePlan are the record of those waits.
 
@@ -63,7 +63,7 @@ The Client provides content, access and decisions on time, and tells the Develop
 
 The Developer owns the Work.
 
-After every payment due under the Project Agreement is paid in full, the Client receives a permanent, non-transferable license to use the delivered and deployed Work for its own purposes. The Client may not copy, modify, resell or sublicense the Work.
+After the total fee is paid in full, the Client receives a permanent, non-transferable license to use the delivered and deployed Work for its own purposes. The Client may not copy, modify, resell or sublicense the Work.
 
 The Developer may reuse its own code, libraries, tools and know-how in other work. The Developer may show the Work in a portfolio, without confidential data.
 

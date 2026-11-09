@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { buildContext } from './context.ts'
 import { markdownToDocx } from './docx.ts'
 import { docxFontViolations, pdfFontViolations } from './fontcheck.ts'
+import { coverageViolations } from './glyphs.ts'
 import { loadClient, loadDeveloper, loadPrices } from './load.ts'
 import { openPdfRenderer } from './pdf.ts'
 import { renderDocument } from './render.ts'
@@ -54,13 +55,20 @@ export async function runDoc(argv: string[], log: (line: string) => void = conso
   try {
     const input = loadClient(args.dir)
     const ctx = buildContext(input, loadPrices(), loadDeveloper())
+    const markdowns = args.docs.map((doc) => ({ doc, markdown: renderDocument(doc, ctx) }))
+
+    // A character Times New Roman lacks would be drawn in a fallback font in either format, so check the text itself.
+    const uncovered = markdowns.flatMap(({ doc, markdown }) => coverageViolations(markdown, FILE_BASE[doc]))
+    if (uncovered.length) {
+      uncovered.forEach((p) => log(p))
+      return 1
+    }
     if (args.formats.includes('pdf')) renderer = await openPdfRenderer()
 
     // Everything is built and font-checked in memory first, so a failure leaves no files behind.
     const files: { name: string; data: Buffer }[] = []
     const problems: string[] = []
-    for (const doc of args.docs) {
-      const markdown = renderDocument(doc, ctx)
+    for (const { doc, markdown } of markdowns) {
       const title = FILE_BASE[doc]
       for (const format of args.formats) {
         const name = `${input.slug}-${title}.${format}`
@@ -71,7 +79,7 @@ export async function runDoc(argv: string[], log: (line: string) => void = conso
       }
     }
     if (problems.length) {
-      problems.forEach(log)
+      problems.forEach((p) => log(p))
       return 1
     }
     const out = join(args.dir, 'out')
@@ -82,7 +90,7 @@ export async function runDoc(argv: string[], log: (line: string) => void = conso
     }
     return 0
   } catch (e) {
-    if (e instanceof DocError) e.errors.forEach(log)
+    if (e instanceof DocError) e.errors.forEach((line) => log(line))
     else log(e instanceof Error ? e.message : String(e))
     return 1
   } finally {

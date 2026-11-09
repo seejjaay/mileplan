@@ -165,3 +165,25 @@ describe('strictness and helpers', () => {
     expect(parseRequirements('- one\n- two\n  continues\n\n- three')).toEqual(['one', 'two continues', 'three'])
   })
 })
+
+describe('review fixes', () => {
+  it('contract has no ambiguous deadline-start sentence, and prices outside work', () => {
+    const md = renderDocument('contract', ctxOf())
+    expect(md).not.toContain('The deadline starts counting')
+    expect(md).toContain('Work outside this Agreement')
+  })
+
+  it('handover waits on the last project payment, never the optional buyout', () => {
+    const bought = make((c) => {
+      c.plan.payments!.push({ key: 'source-code', title: 'Source', amount: 105000, due_date: '2027-03-05' } as Payment)
+    })
+    for (const name of ['contract', 'agreement'] as const) {
+      expect(renderDocument(name, ctxOf(bought))).toContain('last project payment')
+    }
+    expect(renderDocument('contract', ctxOf())).not.toContain('every payment due under')
+  })
+
+  it('parseRequirements strips ordered and plus markers', () => {
+    expect(parseRequirements('1. Login\n2) Logout\n+ Plus\n* Star')).toEqual(['Login', 'Logout', 'Plus', 'Star'])
+  })
+})

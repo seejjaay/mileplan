@@ -1,5 +1,5 @@
 import { DocError } from './types.ts'
-import type { ClientInput, Payment, Prices } from './types.ts'
+import type { ClientInput, Payment, Plan, Prices } from './types.ts'
 
 export type Money = {
   total: number
@@ -24,21 +24,88 @@ export function formatPHP(amount: number): string {
   return `${cents < 0 ? '-' : ''}PHP ${grouped}.${frac}`
 }
 
+// A real calendar date in YYYY-MM-DD form. Date.UTC is only used to count the days of a month, so no timezone is involved.
+export function isRealDate(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return false
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate()
+}
+
 export function formatDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (!m) throw new Error(`not a YYYY-MM-DD date: ${iso}`)
+  if (!m || !isRealDate(iso)) throw new Error(`not a real YYYY-MM-DD date: ${iso}`)
   return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`
 }
 
 const toCents = (n: number) => Math.round(n * 100)
+const moreThan2Decimals = (n: number) => Math.abs(n * 100 - Math.round(n * 100)) > 1e-6
+
+// The rules import_plan() enforces that plan.schema.json cannot express, so documents are never produced
+// for a plan MilePlan would refuse to import.
+function planRuleErrors(plan: Plan, agreementDate: string | undefined): string[] {
+  const errors: string[] = []
+  const real = (path: string, v: string | undefined) => {
+    if (v === undefined) return true
+    if (isRealDate(v)) return true
+    errors.push(`${path} "${v}" is not a real calendar date`)
+    return false
+  }
+  const { start_date: start, end_date: end } = plan.project
+  const startOk = real('plan.json: project.start_date', start)
+  const endOk = real('plan.json: project.end_date', end)
+  if (startOk && endOk && start && end && end < start) errors.push('plan.json: project.end_date is before project.start_date')
+  real('doc.json: agreement_date', agreementDate)
+
+  const milestoneKeys = new Map<string, number>()
+  plan.milestones.forEach((m, i) => {
+    const seen = milestoneKeys.get(m.key)
+    if (seen !== undefined) errors.push(`plan.json: milestones[${i}].key duplicates milestones[${seen}].key`)
+    else milestoneKeys.set(m.key, i)
+    const ok = real(`plan.json: milestones[${i}].due_date`, m.due_date)
+    const prev = plan.milestones[i - 1]
+    if (ok && prev && isRealDate(prev.due_date) && m.due_date < prev.due_date) {
+      errors.push(`plan.json: milestones[${i}].due_date is before milestones[${i - 1}].due_date`)
+    }
+  })
+
+  const paymentKeys = new Map<string, number>()
+  let prevProject = -1
+  ;(plan.payments ?? []).forEach((p, i) => {
+    const seen = paymentKeys.get(p.key)
+    if (seen !== undefined) errors.push(`plan.json: payments[${i}].key duplicates payments[${seen}].key`)
+    else paymentKeys.set(p.key, i)
+    const ok = real(`plan.json: payments[${i}].due_date`, p.due_date)
+    if (moreThan2Decimals(p.amount)) errors.push(`plan.json: payments[${i}].amount can have at most 2 decimals`)
+    if (p.milestone !== undefined && !milestoneKeys.has(p.milestone)) {
+      errors.push(`plan.json: payments[${i}].milestone "${p.milestone}" is not a milestone key in this plan`)
+    }
+    if (p.key !== 'source-code') {
+      const prev = plan.payments![prevProject]
+      if (ok && prev && isRealDate(prev.due_date) && p.due_date < prev.due_date) {
+        errors.push(`plan.json: payments[${i}].due_date is before payments[${prevProject}].due_date`)
+      }
+      prevProject = i
+    }
+  })
+  if ((plan.payments ?? []).filter((p) => p.key === 'source-code').length > 1) {
+    errors.push('plan.json: payments can have the key "source-code" only once')
+  }
+  return errors
+}
 // Integer half-up percentage: round(cents * pct / 100).
 const percentOf = (cents: number, pct: number) => Math.floor((cents * pct + 50) / 100)
 
 export function checkMoney(input: ClientInput, prices: Prices): Money {
   const { plan, doc } = input
   const errors: string[] = []
+  errors.push(...planRuleErrors(plan, doc.agreement_date))
   const startDate = plan.project.start_date
   if (!startDate) errors.push('plan.json: project.start_date is required for documents')
+  if (!plan.project.summary?.trim()) errors.push('plan.json: project.summary is required for documents')
+  if (moreThan2Decimals(doc.source_code.multiplier)) {
+    errors.push(`doc.json: source_code.multiplier must have at most 2 decimals (is ${doc.source_code.multiplier})`)
+  }
   if (plan.project.currency !== undefined && plan.project.currency !== 'PHP') {
     errors.push(`plan.json: project.currency must be PHP for documents (is ${plan.project.currency})`)
   }

@@ -15,7 +15,7 @@ export function parseRequirements(md: string): string[] {
   const items: string[] = []
   for (const line of md.split(/\r?\n/)) {
     if (!line.trim()) continue
-    const bullet = /^[-*]\s+(.*)$/.exec(line)
+    const bullet = /^(?:[-*+]|\d+[.)])\s+(.*)$/.exec(line)
     if (bullet) items.push(bullet[1].trim())
     else if (/^\s/.test(line) && items.length) items[items.length - 1] += ` ${line.trim()}`
     else items.push(line.trim())

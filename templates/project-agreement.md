@@ -49,7 +49,7 @@ Course: {{course}}
 | Source code buyout | {{source.price}} | {{source.due}} |
 {{/if}}
 
-Payment is made by {{paymentMethod}}. The first payment is the deposit and is due before work begins. The Developer hands over the deployed Work only after the last payment is received.
+Payment is made by {{paymentMethod}}. The first payment is the deposit and is due before work begins. The Developer hands over the deployed Work only after the last project payment is received. The source code buyout below is separate and does not delay that handover.
 
 ## 5. Source code buyout (optional)
 

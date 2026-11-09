@@ -16,9 +16,16 @@ function copyFixture(): string {
 
 const outFiles = (dir: string) => (existsSync(join(dir, 'out')) ? readdirSync(join(dir, 'out')).sort() : [])
 
+const logCalls: unknown[][] = []
+
 async function run(args: string[]): Promise<{ code: number; log: string }> {
   const lines: string[] = []
-  const code = await runDoc(args, (l) => lines.push(l))
+  logCalls.length = 0
+  // Records every argument the way console.log would receive them.
+  const code = await runDoc(args, (...a: unknown[]) => {
+    logCalls.push(a)
+    lines.push(String(a[0]))
+  })
   return { code, log: lines.join('\n') }
 }
 
@@ -49,7 +56,26 @@ describe('npm run doc', () => {
     const { code, log } = await run([dir, '--only', 'srs'])
     expect(code).toBe(1)
     expect(outFiles(dir)).toEqual([])
-    expect(log).toContain('is not Times New Roman')
+    expect(log).toContain('U+1F389')
+  })
+
+  it('a DOCX-only export also rejects characters Times New Roman lacks', async () => {
+    const dir = copyFixture()
+    appendFileSync(join(dir, 'scope.md'), '\n\nCart \u{1F6D2}\n')
+    const { code, log } = await run([dir, '--only', 'srs', '--format', 'docx'])
+    expect(code).toBe(1)
+    expect(outFiles(dir)).toEqual([])
+    expect(log).toContain('U+1F6D2')
+  })
+
+  it('logs exactly one argument per line on failure', async () => {
+    const dir = copyFixture()
+    rmSync(join(dir, 'glossary.md'))
+    rmSync(join(dir, 'users.md'))
+    const { code } = await run([dir])
+    expect(code).toBe(1)
+    expect(logCalls.length).toBeGreaterThan(1)
+    expect(logCalls.every((a) => a.length === 1)).toBe(true)
   })
 
   it('validation failure writes nothing', async () => {
