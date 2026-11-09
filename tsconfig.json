@@ -15,5 +15,5 @@
     "allowImportingTsExtensions": true,
     "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src", "scripts", "tests", "e2e", "vite.config.ts", "vitest.integration.config.ts", "playwright.config.ts", "supabase/functions/_shared/token.ts"]
+  "include": ["src", "scripts", "tests", "e2e", "vite.config.ts", "vitest.integration.config.ts", "vitest.doc.config.ts", "playwright.config.ts", "supabase/functions/_shared/token.ts"]
 }
