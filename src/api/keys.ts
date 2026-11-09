@@ -11,6 +11,9 @@ export const qk = {
   payments: (projectId: string) => ['payments', projectId] as const,
   messages: (projectId: string) => ['messages', projectId] as const,
   unread: () => ['unread'] as const,
+  // the count starts with the list key, so one invalidation of notifications() refreshes both
+  notifications: () => ['notifications'] as const,
+  notificationCount: () => ['notifications', 'count'] as const,
   lastVisit: (projectId: string) => ['lastVisit', projectId] as const,
   // starts with the activity key, so a live activity event refreshes it too
   changesSince: (projectId: string, since: string | null) => ['activity', projectId, 'since', since] as const,
