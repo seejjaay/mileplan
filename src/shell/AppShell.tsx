@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { useNotificationsRealtime } from '../realtime/useNotificationsRealtime'
 import { useUnreadRealtime } from '../realtime/useUnreadRealtime'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -14,6 +15,7 @@ function PageFallback() {
 export function AppShell() {
   const { session, profile, signOut } = useAuth()
   useUnreadRealtime(session?.user.id)
+  useNotificationsRealtime(session?.user.id)
   const location = useLocation()
   const main = useRef<HTMLElement>(null)
   const first = useRef(true)
