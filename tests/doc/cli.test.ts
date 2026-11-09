@@ -9,7 +9,8 @@ const temps: string[] = []
 function copyFixture(): string {
   const dir = mkdtempSync(join(tmpdir(), 'doc-cli-'))
   temps.push(dir)
-  cpSync('scripts/doc/fixtures/acme', dir, { recursive: true })
+  // Skip out/: a manual `npm run doc` on the fixture leaves exported files there.
+  cpSync('scripts/doc/fixtures/acme', dir, { recursive: true, filter: (src) => basename(src) !== 'out' })
   return dir
 }
 
