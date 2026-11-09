@@ -1,0 +1,22 @@
+{
+  "client": {
+    "name": "Acme Trading Corporation",
+    "address": "12 Rizal Street, Quezon City, Metro Manila",
+    "email": "orders@acme.example",
+    "representative": "Maria Santos",
+    "representative_title": "Operations Manager"
+  },
+  "academic": false,
+  "payment_method": "GCash or bank transfer",
+  "payment_plan": "50-50",
+  "package": "custom-web-app",
+  "fees": [
+    { "label": "Custom web application", "amount": 63000 },
+    { "addon": "extra-page", "qty": 2 },
+    { "label": "Domain and hosting setup", "amount": 800 },
+    { "label": "UI/UX mockups", "amount": 4200 }
+  ],
+  "source_code": { "multiplier": 1.5 },
+  "dispute_city": "Quezon City",
+  "agreement_date": "2026-11-09"
+}

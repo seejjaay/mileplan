@@ -1,0 +1,5 @@
+- Customers can browse a product catalogue with search and categories.
+- Customers can add products to a cart and change quantities.
+- Customers can check out with a delivery address and a payment method.
+- Acme staff can add, edit and remove products from an admin area.
+- Acme staff can view and update the status of orders.

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "project": {
+    "title": "Acme storefront",
+    "summary": "A small online store with checkout and an admin for products.",
+    "currency": "PHP",
+    "start_date": "2026-11-16",
+    "end_date": "2027-02-26"
+  },
+  "milestones": [
+    {
+      "key": "discovery",
+      "title": "Discovery and wireframes",
+      "description": "Agree what is being built before any code is written.",
+      "acceptance_criteria": ["Wireframes for 6 screens approved", "Sitemap signed off"],
+      "due_date": "2026-11-30",
+      "tasks": ["Kickoff call", "Sitemap", "Wireframes", "Client review"]
+    },
+    {
+      "key": "build",
+      "title": "Build the storefront",
+      "description": "Catalogue, cart and checkout on a staging site.",
+      "acceptance_criteria": ["A customer can place a test order end to end"],
+      "due_date": "2027-01-29",
+      "tasks": ["Product catalogue", "Cart", "Checkout", "Admin for products"]
+    },
+    {
+      "key": "launch",
+      "title": "Launch",
+      "acceptance_criteria": ["Live on the client's domain"],
+      "due_date": "2027-02-26",
+      "tasks": ["Move to production", "Handover session"]
+    }
+  ],
+  "payments": [
+    { "key": "deposit", "title": "Deposit (50%)", "amount": 35000, "due_date": "2026-11-16" },
+    { "key": "final", "title": "Final payment (50%)", "amount": 35000, "due_date": "2027-02-26", "milestone": "launch" }
+  ]
+}

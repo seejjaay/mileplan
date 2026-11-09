@@ -1,0 +1,23 @@
+{
+  "packages": [
+    { "key": "landing-page", "name": "Landing page", "from": 3500, "inclusions": ["1 responsive page (mobile, tablet, desktop)", "Contact form or call-to-action", "Basic SEO and fast loading", "Deployment on your domain"] },
+    { "key": "business-site", "name": "Business / portfolio site", "from": 10000, "inclusions": ["Up to 5 custom-designed pages", "Contact form and social links", "Light animations, SEO setup", "Dark / light theme on request", "Deployment and launch support"] },
+    { "key": "custom-web-app", "name": "Custom web application", "from": 35000, "inclusions": ["Frontend, backend and database", "User login and roles", "Admin dashboard", "API and third-party integrations", "Deployment and documentation"] },
+    { "key": "tools-automation", "name": "Tools and automation", "from": 5000, "inclusions": ["Scripts and workflow automation", "Data cleanup and reports", "Python or UiPath", "Short usage guide"] },
+    { "key": "desktop-mobile-app", "name": "Desktop / mobile app", "from": 40000, "inclusions": ["Electron or React Native", "Local or cloud database", "Clean, easy-to-use interface", "Testing and installer / build"] },
+    { "key": "saas-platform", "name": "System / SaaS platform", "from": 60000, "inclusions": ["Multiple roles and dashboards", "Database design and data modeling", "Reports and exports", "Security basics and deployment"] },
+    { "key": "simple-website", "name": "Simple website", "from": 1500, "inclusions": ["Up to 3 static pages", "Responsive layout", "Contact section"] },
+    { "key": "basic-web-app", "name": "Basic web app", "from": 5000, "inclusions": ["Simple login", "A database with add, edit and delete pages"] },
+    { "key": "basic-app", "name": "Basic app", "from": 8000, "inclusions": ["A simple desktop or mobile app", "Local storage"] }
+  ],
+  "addons": [
+    { "key": "extra-page", "name": "Extra page", "price": 1000 },
+    { "key": "extra-revision", "name": "Extra revision round", "price": 800 },
+    { "key": "domain-hosting-setup", "name": "Domain and hosting setup", "price": 800 },
+    { "key": "ui-ux-mockups", "name": "UI/UX mockups before development", "from": 2500 },
+    { "key": "maintenance", "name": "Monthly maintenance and updates", "from": 1500, "per": "month" },
+    { "key": "rush", "name": "Rush delivery", "percent": 30 },
+    { "key": "bug-fix", "name": "Bug fix", "from": 500, "per": "issue" }
+  ],
+  "source_code_multiplier": { "min": 1.5, "max": 3 }
+}

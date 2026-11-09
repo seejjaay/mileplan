@@ -9,3 +9,5 @@ test-results/
 playwright-report/
 supabase/.branches
 supabase/.temp
+
+clients/
