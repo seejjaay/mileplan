@@ -101,6 +101,12 @@ describe('describeNotification', () => {
     expect(describeNotification(hidden).text).toBe(`Your payment of ${money} was confirmed`)
   })
 
+  // The bell lives in the app header, so a kind this build does not know (a newer migration) must not take the app down.
+  it('describes an unknown kind generically instead of throwing', () => {
+    const unknown = n('plan_change', {}, { kind: 'brand_new_kind' as NotificationKind })
+    expect(describeNotification(unknown)).toEqual({ text: 'There is an update in this project', tab: 'overview' })
+  })
+
   it('falls back to a plain name when the data has none', () => {
     expect(describeNotification(n('milestone_approved', { milestone_title: 'Build' })).text).toBe('A client approved Build')
   })

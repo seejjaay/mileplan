@@ -165,6 +165,19 @@ describe('NotificationBell', () => {
     expect(markAll).toHaveBeenCalledTimes(1)
   })
 
+  // The button that was clicked disappears from the list; focus must not fall back to the page, or Escape stops working.
+  it('keeps focus inside the panel after Dismiss and after Mark all read', async () => {
+    const user = renderBell()
+    await user.click(bell())
+    await user.click(await screen.findByRole('button', { name: 'Dismiss' }))
+    const heading = screen.getByRole('heading', { name: 'Notifications', level: 2 })
+    await waitFor(() => expect(heading).toHaveFocus())
+
+    screen.getByRole('button', { name: 'Outside' }).focus()
+    await user.click(screen.getByRole('button', { name: 'Mark all read' }))
+    await waitFor(() => expect(heading).toHaveFocus())
+  })
+
   it('renders an item whose project is hidden', async () => {
     list.mockResolvedValue([row('n9', { project: null })])
     const user = renderBell()

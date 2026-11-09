@@ -40,5 +40,8 @@ export function describeNotification(n: NotificationRow): { text: string; tab: T
       return { text: `${client} requested changes on ${text(d.milestone_title)}`, tab: 'milestones' }
     case 'plan_change_acked':
       return { text: `${client} acknowledged the plan change`, tab: 'timeline' }
+    default:
+      // The bell is in the app header, so a kind this build doesn't know (a newer migration) must not take the app down.
+      return { text: 'There is an update in this project', tab: 'overview' }
   }
 }

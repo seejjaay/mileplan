@@ -6,12 +6,16 @@ import { useNotificationsRealtime } from './useNotificationsRealtime'
 
 type Handler = { type: string; spec: { event?: string; table?: string; filter?: string }; cb: (payload: unknown) => void }
 const handlers: Handler[] = []
+let statusCb: ((status: string) => void) | undefined
 const channel: { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> } = {
   on: vi.fn((type: string, spec: Handler['spec'], cb: (payload: unknown) => void) => {
     handlers.push({ type, spec, cb })
     return channel
   }),
-  subscribe: vi.fn(() => channel),
+  subscribe: vi.fn((cb?: (status: string) => void) => {
+    statusCb = cb
+    return channel
+  }),
 }
 const makeChannel = vi.fn(() => channel)
 const removeChannel = vi.fn()
@@ -49,6 +53,18 @@ describe('useNotificationsRealtime', () => {
     const spy = vi.spyOn(queryClient, 'invalidateQueries')
     renderHook(() => useNotificationsRealtime('u1'), { wrapper })
     act(() => handlers[0].cb({ eventType: 'UPDATE', new: { id: 'n1', read_at: '2026-11-09T10:00:00Z' } }))
+    expect(spy).toHaveBeenCalledWith({ queryKey: qk.notifications() })
+  })
+
+  // Events are not replayed after a dropped connection (a phone that slept), so (re)joining refreshes everything.
+  it('refreshes when the channel (re)subscribes, and ignores other statuses', () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    renderHook(() => useNotificationsRealtime('u1'), { wrapper })
+    expect(statusCb).toBeTypeOf('function')
+    act(() => statusCb!('CHANNEL_ERROR'))
+    act(() => statusCb!('CLOSED'))
+    expect(spy).not.toHaveBeenCalled()
+    act(() => statusCb!('SUBSCRIBED'))
     expect(spy).toHaveBeenCalledWith({ queryKey: qk.notifications() })
   })
 

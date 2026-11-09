@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(14);
 
 -- Fixtures (as postgres) ---------------------------------------------------------------------------------
 insert into public.projects (id, title, status) values
@@ -61,6 +61,11 @@ select is((select count(*)::int from public.notifications where project_id = '00
 select ok(
   exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'),
   'public.notifications is in the supabase_realtime publication');
+
+-- The resolve step looks rows up by project and group, and project_id is a foreign key.
+select ok(
+  exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'notifications' and indexname = 'notifications_project_group'),
+  'notifications has an index on (project_id, group_key)');
 
 select * from finish();
 rollback;

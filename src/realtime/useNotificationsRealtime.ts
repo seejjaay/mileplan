@@ -13,12 +13,16 @@ export function useNotificationsRealtime(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return
     let active = true
+    const refresh = () => {
+      if (active) void queryClient.invalidateQueries({ queryKey: qk.notifications() })
+    }
     const channel = supabase
       .channel(`notifications:${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` }, () => {
-        if (active) void queryClient.invalidateQueries({ queryKey: qk.notifications() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` }, refresh)
+      // Events are not replayed after a dropped connection (a phone that slept), so every (re)join refreshes.
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refresh()
       })
-      .subscribe()
     return () => {
       active = false
       void supabase.removeChannel(channel)

@@ -78,13 +78,17 @@ export function NotificationBell() {
   const unread = countQuery.data ?? 0
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: qk.notifications() })
+  // The button that was pressed leaves the list, so focus goes to the panel heading (a no-op once the panel is closed).
+  const keepFocus = () => heading.current?.focus()
   const markRead = useMutation({
     mutationFn: (ids: string[]) => markNotificationsRead(ids),
+    onSuccess: keepFocus,
     onSettled: refresh,
     onError: (e) => toast.error(toUserMessage(e)),
   })
   const markAll = useMutation({
     mutationFn: markAllNotificationsRead,
+    onSuccess: keepFocus,
     onSettled: refresh,
     onError: (e) => toast.error(toUserMessage(e)),
   })

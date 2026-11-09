@@ -53,7 +53,11 @@ describe('listNotifications', () => {
     expect(await listNotifications()).toEqual([row])
     expect(call('from')).toEqual(['notifications'])
     expect(call('select')).toEqual(['*, project:projects(title, currency)'])
-    expect(call('order')).toEqual(['updated_at', { ascending: false }])
+    // unread first, so an old action item can never fall off the 50 while the badge still counts it
+    expect(calls.filter(([c]) => c === 'order').map(([, a]) => a)).toEqual([
+      ['read_at', { ascending: false, nullsFirst: true }],
+      ['updated_at', { ascending: false }],
+    ])
     expect(call('limit')).toEqual([50])
   })
 

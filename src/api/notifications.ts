@@ -30,11 +30,15 @@ export type NotificationRow = {
 
 const LIST_LIMIT = 50
 
-/** The latest notifications for the signed-in user (RLS scopes the rows), most recently touched first. */
+/**
+ * The signed-in user's notifications (RLS scopes the rows): every unread one first, then the most recently read,
+ * each group newest first. Unread first, so an old action item can never fall off the 50 while the badge still counts it.
+ */
 export async function listNotifications(): Promise<NotificationRow[]> {
   const { data, error } = await supabase
     .from('notifications')
     .select('*, project:projects(title, currency)')
+    .order('read_at', { ascending: false, nullsFirst: true })
     .order('updated_at', { ascending: false })
     .limit(LIST_LIMIT)
   if (error) throw error

@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(33);
 
 do $$ begin perform tests.create_user('cara@client-c.test'); end $$;
 
@@ -183,6 +183,45 @@ select is((select count(*)::int from public.notifications where recipient_id = t
   'a read row starts a new one for the next event');
 select is((select count(*)::int from public.notifications where recipient_id = tests.get_user('ana@client-a.test') and kind = 'update_posted' and read_at is null), 1,
   'only the new row is unread');
+
+-- ------------------------------------------------------------------ one client, two projects (plan changes)
+-- plan_change and plan_change_acked are per project: a change in one project must not merge into, or be cleared
+-- by, another project's row.
+delete from public.notifications;
+insert into public.projects (id, title, status) values ('00000000-0000-0000-0000-0000000000a3', 'P3', 'setup');
+insert into public.project_members (project_id, user_id) values
+  ('00000000-0000-0000-0000-0000000000a3', tests.get_user('ana@client-a.test'));
+update public.projects set status = 'active' where id = '00000000-0000-0000-0000-0000000000a3';
+select tests.authenticate_as(tests.get_user('admin@mileplan.test'));
+insert into public.milestones (project_id, title) values ('00000000-0000-0000-0000-0000000000a1', 'Cross 1');
+insert into public.milestones (project_id, title) values ('00000000-0000-0000-0000-0000000000a3', 'Cross 3');
+select tests.clear_auth();
+select is(
+  (select array_agg(project_id order by project_id) from public.notifications where kind = 'plan_change' and read_at is null and recipient_id = tests.get_user('ana@client-a.test')),
+  array['00000000-0000-0000-0000-0000000000a1'::uuid, '00000000-0000-0000-0000-0000000000a3'::uuid],
+  'a client in two projects gets one plan_change row per project');
+
+select tests.authenticate_as(tests.get_user('ana@client-a.test'));
+insert into public.plan_change_acks (activity_id, user_id)
+  select a.id, tests.get_user('ana@client-a.test') from public.activity a
+  where a.project_id = '00000000-0000-0000-0000-0000000000a1' and a.plan_change
+    and not exists (select 1 from public.plan_change_acks k where k.activity_id = a.id and k.user_id = tests.get_user('ana@client-a.test'));
+select tests.clear_auth();
+select is(
+  (select array_agg(project_id) from public.notifications where kind = 'plan_change' and read_at is null and recipient_id = tests.get_user('ana@client-a.test')),
+  array['00000000-0000-0000-0000-0000000000a3'::uuid],
+  'acknowledging one project clears only that project''s plan_change');
+
+select tests.authenticate_as(tests.get_user('ana@client-a.test'));
+insert into public.plan_change_acks (activity_id, user_id)
+  select a.id, tests.get_user('ana@client-a.test') from public.activity a
+  where a.project_id = '00000000-0000-0000-0000-0000000000a3' and a.plan_change
+    and not exists (select 1 from public.plan_change_acks k where k.activity_id = a.id and k.user_id = tests.get_user('ana@client-a.test'));
+select tests.clear_auth();
+select is(
+  (select array_agg(project_id order by project_id) from public.notifications where kind = 'plan_change_acked' and recipient_id = tests.get_user('admin@mileplan.test')),
+  array['00000000-0000-0000-0000-0000000000a1'::uuid, '00000000-0000-0000-0000-0000000000a3'::uuid],
+  'acks in two projects give the admin one row per project');
 
 select * from finish();
 rollback;

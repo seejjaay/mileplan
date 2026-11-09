@@ -27,6 +27,8 @@ create table public.notifications (
 -- One unread row per recipient and group; a read row frees the key for the next event.
 create unique index notifications_unread_group on public.notifications (recipient_id, group_key) where read_at is null;
 create index notifications_recipient_recent on public.notifications (recipient_id, updated_at desc);
+-- resolve_notifications() looks rows up by project and group, and project_id is a foreign key (cascade deletes use it too).
+create index notifications_project_group on public.notifications (project_id, group_key);
 
 -- 3. Security: read your own rows, nothing else. Writes go through the triggers and RPCs (security definer).
 alter table public.notifications enable row level security;
@@ -150,7 +152,7 @@ begin
   -- Any plan change is one notification type, whatever caused it (a new payment request included).
   if new.plan_change then
     if v_admin_side then
-      perform public.notify(v_clients, new.project_id, 'plan_change', 'plan_change', null, true, '{}');
+      perform public.notify(v_clients, new.project_id, 'plan_change', 'plan_change:' || new.project_id, new.project_id, true, '{}');
     end if;
     return null;
   end if;
@@ -226,10 +228,10 @@ begin
     where a.project_id = v_project and a.plan_change
       and not exists (select 1 from public.plan_change_acks k where k.activity_id = a.id and k.user_id = new.user_id)
   ) then
-    perform public.resolve_notifications(v_project, 'plan_change', new.user_id);
+    perform public.resolve_notifications(v_project, 'plan_change:' || v_project, new.user_id);
   end if;
   perform public.notify(public.notify_admin_ids(new.user_id), v_project, 'plan_change_acked',
-    'plan_change_acked:' || new.user_id, new.user_id, false,
+    'plan_change_acked:' || v_project || ':' || new.user_id, new.user_id, false,
     jsonb_build_object('client_name', public.display_name(new.user_id)));
   return null;
 end;
