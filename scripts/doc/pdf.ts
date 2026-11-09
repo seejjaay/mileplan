@@ -16,6 +16,7 @@ const CSS = `
   li { margin: 0 0 3pt; }
   table { border-collapse: collapse; width: 100%; margin: 0 0 8pt; page-break-inside: avoid; }
   th, td { border: 1px solid #000; padding: 2pt 5pt; text-align: left; vertical-align: top; }
+  a { color: #000; text-decoration: none; }
   hr { border: 0; border-top: 1px solid #000; }
 `
 

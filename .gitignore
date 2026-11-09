@@ -11,3 +11,4 @@ supabase/.branches
 supabase/.temp
 
 clients/
+scripts/doc/fixtures/*/out/
