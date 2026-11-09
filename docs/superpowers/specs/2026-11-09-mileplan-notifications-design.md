@@ -50,7 +50,7 @@ Each notification has a `group_key`, built from its kind and what it is about (f
 | Row | Clears when |
 |---|---|
 | `milestone_in_review:<milestone>` | the milestone's status changes away from `in_review` |
-| `changes_requested:<milestone>` | the milestone's status changes again |
+| `changes_requested:<milestone>` | an admin (or a null actor) changes the milestone's status. The client's own review also moves the milestone back to `in_progress`, in the same transaction, after the review's activity row, so a change made by a client must not count |
 | `payment_proof:<payment>` | the payment leaves `pending` |
 | `payment_rejected:<request>` | a new payment is submitted against that request |
 | `plan_change` (a client's) | that client has no unacknowledged plan change left in the project, checked when they acknowledge |
@@ -62,7 +62,7 @@ One migration, `supabase/migrations/20261111000100_notifications.sql`, following
 - **Enum `public.notification_kind`** with the ten kinds in §3.
 - **Table `public.notifications`:**
   - `id`, `recipient_id` (profiles, cascade), `project_id` (projects, cascade), `kind`, `group_key`, `subject_id`, `needs_action`, `count` (default 1), `created_at`, `updated_at`, `read_at`.
-  - `data jsonb` snapshots what the sentence needs: the milestone, update or document title, the amount and currency, the review comment, and the actor's name from `public.display_name(uuid)`.
+  - `data jsonb` snapshots what the sentence needs: the milestone or document title, an update's first line (updates have no title, so the first non-empty line of `body`, cut to 80 characters), the amount and currency, the payment request's title, the review comment, and the actor's name from `public.display_name(uuid)`.
   - Index on `(recipient_id, updated_at desc)`.
   - No retention rule yet. The list query is capped at 50 rows.
 - **Security:**
