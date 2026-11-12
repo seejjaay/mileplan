@@ -89,6 +89,17 @@ describe('npm run doc', () => {
     expect(outFiles(dir)).toEqual([])
   })
 
+  it('rejects a source code multiplier below 1', async () => {
+    const dir = copyFixture()
+    const doc = JSON.parse(readFileSync(join(dir, 'doc.json'), 'utf8'))
+    doc.source_code.multiplier = 0.9
+    writeFileSync(join(dir, 'doc.json'), JSON.stringify(doc))
+    const { code, log } = await run([dir])
+    expect(code).toBe(1)
+    expect(log).toContain('/source_code/multiplier')
+    expect(outFiles(dir)).toEqual([])
+  })
+
   it('a money rule failure writes nothing', async () => {
     const dir = copyFixture()
     const plan = JSON.parse(readFileSync(join(dir, 'plan.json'), 'utf8'))

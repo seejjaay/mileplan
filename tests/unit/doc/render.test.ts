@@ -88,6 +88,19 @@ describe('project agreement', () => {
     expect(renderDocument('agreement', ctxOf())).toContain('PHP 105,000.00')
   })
 
+  it('has no special terms section unless the project sets some', () => {
+    const md = renderDocument('agreement', ctxOf())
+    expect(headings(md, 2)).not.toContain('8. Special terms')
+    expect(headings(md, 2)).toContain('8. Signatures')
+  })
+
+  it('prints special terms before the signatures and renumbers them', () => {
+    const md = renderDocument('agreement', ctxOf(withDoc({ special_terms: ['Credit. The Client credits the Developer.'] })))
+    const h = headings(md, 2)
+    expect(h.slice(-2)).toEqual(['8. Special terms', '9. Signatures'])
+    expect(md).toContain('Credit. The Client credits the Developer.')
+  })
+
   it('payment table gains a buyout row when bought', () => {
     const bought = make((c) => {
       c.plan.payments!.push({ key: 'source-code', title: 'Source', amount: 105000, due_date: '2027-03-05' } as Payment)

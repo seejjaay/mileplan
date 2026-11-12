@@ -52,6 +52,8 @@ export type RenderContext = {
   agreementDate: string
   requirements: string[]
   contractNo: { academic: number; esign: number; signatures: number }
+  specialTerms: string[]
+  agreementNo: { signatures: number }
   prose: Record<ProseName, string>
 }
 
@@ -115,6 +117,8 @@ export function buildContext(input: ClientInput, prices: Prices, developer: Deve
     agreementDate: doc.agreement_date ? formatDate(doc.agreement_date) : '',
     requirements: parseRequirements(input.prose.requirements),
     contractNo: { academic: 17, esign: academic ? 18 : 17, signatures: academic ? 19 : 18 },
+    specialTerms: (doc.special_terms ?? []).map(e),
+    agreementNo: { signatures: doc.special_terms?.length ? 9 : 8 },
     prose: input.prose,
   }
 }
