@@ -6,6 +6,9 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
+  /* Long unbroken strings (URLs, filenames, one huge word) wrap instead of poking out of their border.
+     `anywhere`, unlike `break-word`, also lowers min-content, so flex/grid items can shrink below the word. */
+  overflow-wrap: anywhere;
 }
 
 h1, h2, h3 {

@@ -33,8 +33,8 @@ export default function MyProjectsPage() {
                 <li key={p.id}>
                   <Link to={`/projects/${p.id}`} className="flex h-full flex-col gap-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
                     <span className="flex items-start justify-between gap-3">
-                      <span className="font-medium">{p.title}</span>
-                      <span className="flex items-center gap-2">
+                      <span className="min-w-0 font-medium">{p.title}</span>
+                      <span className="flex shrink-0 items-center gap-2">
                       <UnreadBadge count={unread[p.id] ?? 0} />
                       <StatusChip {...projectChip[p.status]} />
                     </span>

@@ -99,8 +99,8 @@ export function TaskList({ milestone, canEdit }: Props) {
       <ul aria-label={`Tasks for ${milestone.title}`} className="flex flex-col gap-1 text-sm">
         {milestone.tasks.map((t) => (
           <li key={t.id} className="flex justify-between gap-3">
-            <span>{t.title}</span>
-            <span className="text-[var(--muted)]">{STATUS_LABEL[t.status]}</span>
+            <span className="min-w-0">{t.title}</span>
+            <span className="shrink-0 text-[var(--muted)]">{STATUS_LABEL[t.status]}</span>
           </li>
         ))}
       </ul>

@@ -13,7 +13,7 @@ const config: Record<ChipStatus, { variant: Variant; className: string }> = {
 export function StatusChip({ status, label }: { status: ChipStatus; label: string }) {
   const { variant, className } = config[status]
   return (
-    <span data-variant={variant} className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${className}`}>
+    <span data-variant={variant} className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${className}`}>
       {label}
     </span>
   )
