@@ -35,6 +35,7 @@ export type DocJson = {
   package: string
   fees: FeeLine[]
   source_code: { multiplier: number }
+  special_terms?: string[]
   dispute_city: string
   agreement_date?: string
   revision_rounds?: number

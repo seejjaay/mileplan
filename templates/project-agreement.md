@@ -78,6 +78,16 @@ Work starts on {{startDate}}. The Final Deadline is **{{finalDeadline}}**, and i
 
 The Developer submits each milestone for review in MilePlan. The Client approves it there. A milestone left in review with no response for {{terms.acceptanceDays}} days is deemed accepted.
 
-## 8. Signatures
+{{#if specialTerms.length}}
+## 8. Special terms
+
+These terms apply to this project only. Where they differ from the Service Agreement, these terms apply.
+
+{{#each specialTerms}}
+- {{this}}
+{{/each}}
+
+{{/if}}
+## {{agreementNo.signatures}}. Signatures
 
 {{> signatures}}
